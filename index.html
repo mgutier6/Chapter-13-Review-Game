@@ -2,15 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🎉 Mario Stats Kart Prototype</title>
+<title>🎉 Mario Stats Kart</title>
 <style>
-  body {margin:0; overflow:hidden; background:#7ec0ee; font-family:sans-serif;}
-  canvas {display:block; background:#87cefa;}
-  #scoreboard {position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px;}
+body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
+#scoreboard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
+#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20;}
+#questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
+canvas { display:block; }
 </style>
 </head>
 <body>
 <div id="scoreboard">Score: 0 | Power-ups: 0</div>
+<div id="questionPanel">
+  <div id="questionText"></div>
+  <div id="answerButtons"></div>
+</div>
 <canvas id="game"></canvas>
 
 <script>
@@ -19,29 +25,32 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let score = 0, powerups = 0;
+let score=0, powerups=0;
+
+// Track & camera
+const trackLength = 3000; // x-length
+let cameraX = 0;
 
 // Player
-const player = {x:100, y:canvas.height-100, width:50, height:50, color:'red', speed:5};
+const player = {x:100, y:canvas.height-150, width:50, height:50, color:'red', speed:5};
 
 // AI drivers
 const aiDrivers = [
-  {x:150, y:canvas.height-100, width:50, height:50, color:'blue', speed:2},
-  {x:200, y:canvas.height-100, width:50, height:50, color:'green', speed:2.2},
-  {x:250, y:canvas.height-100, width:50, height:50, color:'purple', speed:2.5}
+  {x:150, y:canvas.height-150, width:50, height:50, color:'blue', speed:2},
+  {x:200, y:canvas.height-150, width:50, height:50, color:'green', speed:2.2},
+  {x:250, y:canvas.height-150, width:50, height:50, color:'purple', speed:2.5}
 ];
 
-// Lucky blocks
+// Lucky blocks with hit status
 const questions = [
   {q:"Why do sample proportions vary?", a:"Random sampling variability", options:["Random sampling variability","Always same","Depends on n"]},
   {q:"Randomization Condition?", a:"Sample randomly selected", options:["Random sample","Population small","Sample >10%"]},
   {q:"10% Condition?", a:"Sample <10% population", options:["Sample <10%","Sample >50%","Sample = population"]},
   {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Skewed","Uniform"]}
 ];
-
 let blocks = [];
-for(let i=0;i<5;i++){
-  blocks.push({x:300+i*400, y:canvas.height/2 + (Math.random()*200-100), width:50, height:50, hit:false});
+for(let i=0;i<10;i++){
+  blocks.push({x:400+i*250, y:canvas.height/2 + (Math.random()*300-150), width:50, height:50, hit:false});
 }
 
 // Controls
@@ -49,13 +58,39 @@ const keys = {};
 window.addEventListener('keydown', e=>keys[e.key]=true);
 window.addEventListener('keyup', e=>keys[e.key]=false);
 
-// Update scoreboard
+// Scoreboard update
 function updateScoreboard(){ document.getElementById('scoreboard').innerText = `Score: ${score} | Power-ups: ${powerups}`; }
 
-// Collision detection
+// Collision
 function isColliding(a,b){ return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
 
-// Main game loop
+// Multiple choice UI
+const questionPanel = document.getElementById('questionPanel');
+const questionText = document.getElementById('questionText');
+const answerButtons = document.getElementById('answerButtons');
+
+function askQuestion(block){
+  const qIndex = Math.floor(Math.random()*questions.length);
+  const q = questions[qIndex];
+  questionText.innerText = q.q;
+  answerButtons.innerHTML = '';
+  q.options.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.innerText = opt;
+    btn.onclick = ()=>{
+      if(opt === q.a){
+        score++; powerups++;
+        alert("Correct! You got a power-up 🎉");
+      } else { alert("Wrong! No power-up 😢"); }
+      updateScoreboard();
+      questionPanel.style.display='none';
+    }
+    answerButtons.appendChild(btn);
+  });
+  questionPanel.style.display='block';
+}
+
+// Main loop
 function loop(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -65,38 +100,45 @@ function loop(){
   if(keys['ArrowLeft']) player.x -= player.speed;
   if(keys['ArrowRight']) player.x += player.speed;
 
-  // Keep in bounds
-  player.x = Math.max(0, Math.min(canvas.width-player.width, player.x));
-  player.y = Math.max(0, Math.min(canvas.height-player.height, player.y));
+  // Keep in bounds vertically
+  player.y = Math.max(50, Math.min(canvas.height-100, player.y));
 
-  // Draw player
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  // Camera follows player
+  cameraX = player.x - 200;
 
-  // Move and draw AI
-  aiDrivers.forEach(ai=>{
-    ai.x += ai.speed;
-    ctx.fillStyle=ai.color;
-    ctx.fillRect(ai.x, ai.y, ai.width, ai.height);
-  });
+  // Draw background (fun repeating pattern)
+  for(let i=0;i<trackLength;i+=100){
+    ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
+    ctx.fillRect(i - cameraX, canvas.height/2, 100, 20);
+  }
+
+  // Draw finish line
+  const finishX = trackLength - 100;
+  ctx.fillStyle='black';
+  ctx.fillRect(finishX - cameraX, 0, 20, canvas.height);
 
   // Draw blocks
   blocks.forEach(block=>{
     if(!block.hit){
       ctx.fillStyle='gold';
-      ctx.fillRect(block.x, block.y, block.width, block.height);
-      // Check collision
+      ctx.fillRect(block.x - cameraX, block.y, block.width, block.height);
       if(isColliding(player,block)){
-        block.hit = true;
-        askQuestion();
+        block.hit=true;
+        askQuestion(block);
       }
     }
   });
 
-  // Draw finish line
-  const finishX = 3000;
-  ctx.fillStyle='black';
-  ctx.fillRect(finishX,0,20,canvas.height);
+  // Draw player
+  ctx.fillStyle=player.color;
+  ctx.fillRect(player.x - cameraX, player.y, player.width, player.height);
+
+  // Move & draw AI
+  aiDrivers.forEach(ai=>{
+    ai.x += ai.speed;
+    ctx.fillStyle=ai.color;
+    ctx.fillRect(ai.x - cameraX, ai.y, ai.width, ai.height);
+  });
 
   // Check finish
   if(player.x + player.width >= finishX){
@@ -107,36 +149,24 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-// Multiple choice question
-function askQuestion(){
-  const qIndex = Math.floor(Math.random()*questions.length);
-  const q = questions[qIndex];
-
-  let choices = '';
-  q.options.forEach((o,i)=> choices += `${i+1}: ${o}\n`);
-  let ans = prompt(q.q + "\n" + choices);
-  if(ans && q.options[parseInt(ans)-1]===q.a){
-    score++;
-    powerups++;
-    alert("Correct! You got a power-up 🎉");
-  } else {
-    alert("Wrong! No power-up 😢");
-  }
-  updateScoreboard();
-}
-
-// Final boss
+// Final Boss
 function finalBoss(){
-  const finalQ = "Final Boss! Solve p^ = ? for n=10, p=0.5\n1: 0.5\n2: 0.4\n3: 0.6";
-  let ans = prompt(finalQ);
-  if(ans==='1'){
-    alert("You saved the princess! 🎉🏁 Final Score: "+score);
-  } else {
-    alert("Game Over! Final Score: "+score);
-  }
-  location.reload();
+  questionPanel.style.display='block';
+  questionText.innerText = "Final Boss! Solve p^ = ? for n=10, p=0.5";
+  answerButtons.innerHTML='';
+  ['0.5','0.4','0.6'].forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.innerText = opt;
+    btn.onclick = ()=>{
+      if(opt==='0.5'){ alert("You saved the princess! 🎉🏁 Final Score: "+score); }
+      else{ alert("Game Over! Final Score: "+score); }
+      location.reload();
+    }
+    answerButtons.appendChild(btn);
+  });
 }
 
+updateScoreboard();
 loop();
 </script>
 </body>
