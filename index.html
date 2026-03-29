@@ -1,164 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎈 Balloon Pop Stats Game!</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to top, #87cefa, #ffebcd);
-    }
-
-    #scoreboard {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 24px;
-      font-weight: bold;
-      color: #333;
-      background: rgba(255,255,255,0.7);
-      padding: 10px 20px;
-      border-radius: 12px;
-    }
-
-    .balloon {
-      position: absolute;
-      padding: 10px 20px;
-      background: radial-gradient(circle at 30% 30%, #ff6666, #cc0000);
-      border-radius: 50%;
-      color: #fff;
-      font-weight: bold;
-      cursor: pointer;
-      user-select: none;
-      animation: floatUp linear;
-    }
-
-    @keyframes floatUp {
-      0% { transform: translateY(100vh); }
-      100% { transform: translateY(-100px); }
-    }
-
-    .pop {
-      animation: popAnim 0.3s forwards;
-    }
-
-    @keyframes popAnim {
-      0% { transform: scale(1); opacity: 1; }
-      100% { transform: scale(2); opacity: 0; }
-    }
-
-    .confetti {
-      position: absolute;
-      width: 8px;
-      height: 8px;
-      background-color: #ffdd57;
-      animation: fall 2s linear forwards;
-    }
-
-    @keyframes fall {
-      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎉 Mario Stats Kart!</title>
+<style>
+  body { margin:0; font-family: 'Segoe UI', sans-serif; background: linear-gradient(to top,#87cefa,#ffebcd);}
+  #scoreboard {position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:24px;background:rgba(255,255,255,0.7);padding:10px 20px;border-radius:12px;}
+  #track {position:relative;width:100%;height:80vh;background:#7cfc00;overflow:hidden; margin-top: 50px;}
+  .driver {position:absolute;width:50px;height:50px;border-radius:50%;color:#fff;text-align:center;line-height:50px;font-weight:bold;}
+  #player {background:#ff4500;}
+  .ai {background:#1e90ff;}
+  .block {position:absolute;width:40px;height:40px;background:gold;border-radius:8px;text-align:center;font-weight:bold;line-height:40px;cursor:pointer;animation:floatUp 5s linear infinite;}
+  @keyframes floatUp {0% {top:80%;}100%{top:-50px;}}
+  .confetti {position:absolute;width:8px;height:8px;background-color:#ffdd57;animation:fall 2s linear forwards;}
+  @keyframes fall {0%{transform:translateY(0) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(360deg);opacity:0;}}
+</style>
 </head>
 <body>
-  <div id="scoreboard">Score: 0 | Lives: 3</div>
+<div id="scoreboard">Score: 0 | Power-ups: 0</div>
+<div id="track"></div>
 
-  <script>
-    const questions = [
-      {q: "Why do sample proportions vary from sample to sample?", a: "Random sampling variability"},
-      {q: "Randomization Condition?", a: "Sample randomly selected"},
-      {q: "10% Condition?", a: "Sample <10% population"},
-      {q: "Sampling distribution of p^ shape?", a: "Approximately normal"},
-      {q: "p represents?", a: "True population proportion"},
-      {q: "Parameter vs Statistic?", a: "Parameter=population, Statistic=sample"},
-      {q: "p^ represents?", a: "Sample proportion"},
-      {q: "q = ?", a: "1 - p"},
-      {q: "Larger samples more accurate?", a: "True"},
-      {q: "Sampling variability?", a: "Natural differences between samples"},
-      {q: "p=0.5 mean of sampling distribution?", a: "0.5"},
-      {q: "n=10 vs n=100 more spread?", a: "n=10"},
-      {q: "Most important for normal model?", a: "Success/Failure condition"}
-    ];
+<script>
+const questions = [
+  {q:"Why do sample proportions vary?",a:"Random sampling variability"},
+  {q:"Randomization Condition?",a:"Sample randomly selected"},
+  {q:"10% Condition?",a:"Sample <10% population"},
+  {q:"Sampling distribution shape?",a:"Approximately normal"},
+];
 
-    let score = 0;
-    let lives = 3;
+let score = 0, powerups = 0;
 
-    function updateScoreboard() {
-      document.getElementById('scoreboard').innerText = `Score: ${score} | Lives: ${lives}`;
+// Create drivers
+const track = document.getElementById('track');
+const player = document.createElement('div');
+player.id = 'player';
+player.className='driver';
+player.style.left='10px'; player.style.bottom='10px';
+player.innerText='YOU';
+track.appendChild(player);
+
+const aiDrivers = [];
+for(let i=0;i<3;i++){
+  const ai = document.createElement('div');
+  ai.className='driver ai';
+  ai.style.left = (10 + i*60)+'px';
+  ai.style.bottom = '10px';
+  ai.innerText = 'AI'+(i+1);
+  track.appendChild(ai);
+  aiDrivers.push({el:ai,pos:10 + i*60});
+}
+
+// Update scoreboard
+function updateScoreboard(){
+  document.getElementById('scoreboard').innerText = `Score: ${score} | Power-ups: ${powerups}`;
+}
+
+// Confetti
+function launchConfetti(x,y){
+  for(let i=0;i<20;i++){
+    const c = document.createElement('div');
+    c.className='confetti';
+    c.style.left = x+'px';
+    c.style.top = y+'px';
+    c.style.backgroundColor = `hsl(${Math.random()*360},100%,50%)`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),2000);
+  }
+}
+
+// Spawn lucky blocks
+function spawnBlock(){
+  const block = document.createElement('div');
+  block.className='block';
+  const qIndex = Math.floor(Math.random()*questions.length);
+  const question = questions[qIndex];
+  block.dataset.answer = question.a;
+  block.innerText='?';
+  block.style.left = Math.random()*(window.innerWidth-50)+'px';
+  track.appendChild(block);
+
+  block.onclick = ()=>{
+    const ans = prompt(question.q);
+    if(ans && ans.toLowerCase()===question.a.toLowerCase()){
+      powerups++;
+      score++;
+      updateScoreboard();
+      launchConfetti(parseInt(block.style.left), track.offsetTop + track.offsetHeight*0.5);
+    } 
+    block.remove();
+  }
+
+  // auto remove
+  setTimeout(()=>{ if(track.contains(block)) block.remove(); }, 7000);
+
+  // spawn next block
+  setTimeout(spawnBlock, 3000+Math.random()*2000);
+}
+
+// Move drivers
+function moveDriver(driver, speed){
+  let pos = parseInt(driver.el.style.bottom);
+  pos += speed;
+  driver.el.style.bottom = pos+'px';
+  if(pos>=track.offsetHeight-50){
+    driver.el.style.bottom = (track.offsetHeight-50)+'px';
+    // Trigger final boss
+    if(driver.el===player){
+      setTimeout(finalBoss,500);
     }
+  } else {
+    requestAnimationFrame(()=>moveDriver(driver,speed));
+  }
+}
 
-    function launchConfetti(x, y){
-      for(let i=0;i<20;i++){
-        const c = document.createElement('div');
-        c.className='confetti';
-        c.style.left = x + 'px';
-        c.style.top = y + 'px';
-        c.style.backgroundColor = `hsl(${Math.random()*360},100%,50%)`;
-        document.body.appendChild(c);
-        setTimeout(()=>c.remove(), 2000);
-      }
-    }
+// Final Boss
+function finalBoss(){
+  const finalQ = "Final boss: Solve p^ = ? for n=10, p=0.5";
+  const ans = prompt(finalQ);
+  if(ans && ans==='0.5'){
+    alert("You saved the princess! 🎉🏁 Final Score: "+score);
+  } else {
+    alert("Game Over! You failed the boss... Final Score: "+score);
+  }
+  location.reload();
+}
 
-    function spawnBalloon() {
-      if(lives <= 0) return;
-
-      const balloon = document.createElement('div');
-      balloon.className = 'balloon';
-
-      // Pick random question and 1 correct + 2 wrong answers
-      const qIndex = Math.floor(Math.random()*questions.length);
-      const question = questions[qIndex];
-      const answers = [question.a];
-
-      while(answers.length<3){
-        const r = questions[Math.floor(Math.random()*questions.length)].a;
-        if(!answers.includes(r)) answers.push(r);
-      }
-
-      balloon.innerText = answers[Math.floor(Math.random()*answers.length)];
-      balloon.style.left = Math.random()*(window.innerWidth-100) + 'px';
-      balloon.style.animationDuration = (5+Math.random()*3) + 's';
-
-      document.body.appendChild(balloon);
-
-      balloon.onclick = () => {
-        if(balloon.innerText === question.a){
-          score++;
-          updateScoreboard();
-          balloon.classList.add('pop');
-          launchConfetti(parseInt(balloon.style.left), window.innerHeight*0.8);
-          setTimeout(()=>balloon.remove(),300);
-        } else {
-          lives--;
-          updateScoreboard();
-          balloon.style.transform = "translateX(-10px)";
-          setTimeout(()=>balloon.style.transform="", 100);
-          if(lives<=0){
-            alert(`Game Over! Final Score: ${score}`);
-            location.reload();
-          }
-        }
-      };
-
-      // Remove balloon after it floats off screen
-      balloon.addEventListener('animationend', ()=>{
-        if(document.body.contains(balloon)) {
-          balloon.remove();
-          if(lives>0) spawnBalloon(); // keep the game going
-        }
-      });
-
-      // spawn next balloon randomly after 0.5–1.5s
-      setTimeout(spawnBalloon, 500+Math.random()*1000);
-    }
-
-    updateScoreboard();
-    spawnBalloon();
-  </script>
+// Start race
+spawnBlock();
+updateScoreboard();
+moveDriver({el:player},1);
+aiDrivers.forEach(ai=>{ moveDriver(ai, 0.5+Math.random()*0.5); });
+</script>
 </body>
 </html>
