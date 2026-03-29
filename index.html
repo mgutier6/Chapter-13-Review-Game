@@ -2,21 +2,34 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🔥 Mario Stats Kart - Ultimate Lanes v2</title>
+<title>🔥 Mario Stats Kart - Ultimate Lanes Final</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #scoreboard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
 #questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20; max-width:500px; text-align:center;}
 #questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
+#startScreen { position:absolute; top:0; left:0; width:100%; height:100%; background:#333; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:48px; z-index:30; }
+#startScreen button { font-size:32px; padding:15px 30px; margin-top:20px; cursor:pointer; }
 canvas { display:block; }
 </style>
 </head>
 <body>
+
+<div id="startScreen">
+  Chapter 13 Review
+  <button id="startButton">Start</button>
+</div>
+
 <div id="scoreboard">Score: 0 | Power-ups: 0</div>
 <div id="questionPanel">
   <div id="questionText"></div>
   <div id="answerButtons"></div>
 </div>
+
+<audio id="bgMusic" loop>
+  <source src="background.mp3" type="audio/mpeg">
+</audio>
+
 <canvas id="game"></canvas>
 
 <script>
@@ -27,20 +40,21 @@ canvas.height = window.innerHeight;
 
 let score = 0, powerups = 0;
 let gamePaused = false;
+let gameStarted = false;
 
 // Track & lanes
-const trackLength = 15000; // 5+ minutes
+const trackLength = 15000;
 const laneCount = 4;
 const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Player
-const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:5};
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:3.5};
 
 // AI drivers
 const aiDrivers = [
-  {lane:0, x:150, width:50, height:50, color:'blue', speed:3},
-  {lane:2, x:200, width:50, height:50, color:'green', speed:3.2},
+  {lane:0, x:150, width:50, height:50, color:'blue', speed:3.5},
+  {lane:2, x:200, width:50, height:50, color:'green', speed:3.5},
   {lane:3, x:250, width:50, height:50, color:'purple', speed:3.5}
 ];
 
@@ -62,7 +76,7 @@ const questions = [
   {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// Generate lucky blocks
+// Lucky blocks
 let blocks = [];
 for(let i=0;i<questions.length;i++){
   const lane = i % laneCount;
@@ -70,7 +84,7 @@ for(let i=0;i<questions.length;i++){
   blocks.push({x:spacing, lane:lane, width:50, height:50, hit:false, questionIndex:i});
 }
 
-// Obstacles within lanes
+// Obstacles
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
   for(let i=0;i<25;i++){
@@ -101,7 +115,7 @@ const questionText = document.getElementById('questionText');
 const answerButtons = document.getElementById('answerButtons');
 
 function askQuestion(block){
-  gamePaused = true; // stop all movement
+  gamePaused = true;
   const q = questions[block.questionIndex];
   questionText.innerText = q.q;
   answerButtons.innerHTML = '';
@@ -114,15 +128,14 @@ function askQuestion(block){
       if(opt === q.a){
         score++;
         powerups++;
-        // Decide powerup
         if(Math.random()<0.5){
           alert("Correct! Power-up: SPEED BOOST! 🚀");
-          player.speed += 3; 
-          setTimeout(()=>player.speed -= 3, 4000);
+          player.speed += 2; 
+          setTimeout(()=>player.speed -= 2, 4000);
         } else{
           alert("Correct! Power-up: SLOW DOWN AI! 🐢");
-          aiDrivers.forEach(ai=>ai.speed -= 2);
-          setTimeout(()=>aiDrivers.forEach(ai=>ai.speed += 2), 4000);
+          aiDrivers.forEach(ai=>ai.speed -= 1.5);
+          setTimeout(()=>aiDrivers.forEach(ai=>ai.speed += 1.5), 4000);
         }
       } else { alert("Wrong! No power-up 😢"); }
       updateScoreboard();
@@ -133,12 +146,11 @@ function askQuestion(block){
   questionPanel.style.display='block';
 }
 
-// Move player inside lane
+// Move player inside lane with obstacle collision
 function movePlayerLane(){
   const maxOffset = laneHeight/2 - player.height/2;
   if(keys['ArrowUp']) { 
     let nextY = player.yOffset - player.speed;
-    // check obstacle collision
     if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({x:player.x,yOffset:nextY,width:player.width,height:player.height}, obs))){
       player.yOffset = Math.max(-maxOffset, nextY); 
     }
@@ -165,15 +177,14 @@ function drawLaneLines(){
 
 // Main loop
 function loop(){
+  if(!gameStarted) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   if(!gamePaused){
     movePlayerLane();
 
-    // Camera follows player
     cameraX = player.x - 200;
 
-    // Draw track background
     for(let i=0;i<trackLength;i+=100){
       ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
       ctx.fillRect(i - cameraX, 0, 100, canvas.height);
@@ -181,7 +192,6 @@ function loop(){
 
     drawLaneLines();
 
-    // Draw finish line
     const finishX = trackLength - 100;
     ctx.fillStyle='black';
     ctx.fillRect(finishX - cameraX, 0, 20, canvas.height);
@@ -192,7 +202,7 @@ function loop(){
       ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
     });
 
-    // Draw blocks
+    // Draw lucky blocks
     blocks.forEach(block=>{
       if(!block.hit){
         ctx.fillStyle='gold';
@@ -208,18 +218,17 @@ function loop(){
       ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 - ai.height/2, ai.width, ai.height);
     });
 
-    // Move player forward
-    player.x += player.speed;
+    // Move player forward with obstacle collision
+    let nextX = player.x + player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({x:nextX,yOffset:player.yOffset,width:player.width,height:player.height}, obs))){
+      player.x = nextX;
+    }
 
     // Draw player
     ctx.fillStyle=player.color;
     ctx.fillRect(player.x - cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
 
-    // Check finish
-    if(player.x + player.width >= trackLength - 100){
-      finalBoss();
-      return;
-    }
+    if(player.x + player.width >= trackLength - 100) finalBoss();
   }
 
   requestAnimationFrame(loop);
@@ -243,8 +252,15 @@ function finalBoss(){
   });
 }
 
+// Start game
+document.getElementById('startButton').onclick = ()=>{
+  document.getElementById('startScreen').style.display='none';
+  gameStarted = true;
+  document.getElementById('bgMusic').play();
+  loop();
+}
+
 updateScoreboard();
-loop();
 </script>
 </body>
 </html>
