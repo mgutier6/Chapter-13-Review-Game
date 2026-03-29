@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stats Quiz Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .question-box {
+      background: rgba(0,0,0,0.3);
+      padding: 20px;
+      border-radius: 15px;
+      max-width: 600px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      width: 80%;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      background-color: #ffdd57;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background-color: #ffc107;
+    }
+
+    .feedback {
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .score {
+      margin-top: 20px;
+      font-size: 20px;
+    }
+
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: #ffdd57;
+      animation: fall 2s linear infinite;
+    }
+
+    @keyframes fall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Stats Quiz Game!</h1>
+  <div class="question-box">
+    <div id="question">Loading question...</div>
+    <input type="text" id="answerInput" placeholder="Type your answer here...">
+    <br>
+    <button onclick="checkAnswer()">Submit Answer</button>
+    <div class="feedback" id="feedback"></div>
+  </div>
+  <div class="score" id="score">Score: 0</div>
+
+  <script>
+    const questions = [
+      {q: "Why do sample proportions vary from sample to sample?", a: "Due to random sampling variability"},
+      {q: "What is the Randomization Condition?", a: "The sample must be randomly selected"},
+      {q: "What is the 10% Condition?", a: "The sample size must be less than 10% of the population"},
+      {q: "What shape does the sampling distribution of p^ have?", a: "Approximately normal"},
+      {q: "What does p represent?", a: "The true population proportion"},
+      {q: "What is the difference between a parameter and a statistic?", a: "A parameter describes a population, while a statistic describes a sample"},
+      {q: "What does p^ represent?", a: "The sample proportion"},
+      {q: "What does q equal in proportion problems?", a: "q = 1 - p"},
+      {q: "True or False: Larger samples give more accurate estimates.", a: "True"},
+      {q: "What is sampling variability?", a: "The natural differences between sample results"},
+      {q: "If p=0.5, what is the mean of the sampling distribution?", a: "0.5"},
+      {q: "If n=10 vs n=100, which has more spread?", a: "n=10"},
+      {q: "Which condition is most important for using a normal model?", a: "Success/Failure condition"}
+    ];
+
+    let currentQuestion = 0;
+    let score = 0;
+
+    function showQuestion() {
+      if(currentQuestion >= questions.length) {
+        document.getElementById('question').innerHTML = "🎉 Congrats! You finished the quiz!";
+        document.getElementById('answerInput').style.display = "none";
+        document.querySelector('button').style.display = "none";
+        launchConfetti();
+        return;
+      }
+      document.getElementById('question').innerText = questions[currentQuestion].q;
+      document.getElementById('answerInput').value = "";
+      document.getElementById('feedback').innerText = "";
+    }
+
+    function checkAnswer() {
+      const input = document.getElementById('answerInput').value.trim().toLowerCase();
+      const correct = questions[currentQuestion].a.toLowerCase();
+      if(input === correct) {
+        document.getElementById('feedback').innerText = "✅ Correct!";
+        score++;
+        document.getElementById('score').innerText = `Score: ${score}`;
+      } else {
+        document.getElementById('feedback').innerText = `❌ Wrong! Correct answer: ${questions[currentQuestion].a}`;
+      }
+      currentQuestion++;
+      setTimeout(showQuestion, 1500);
+    }
+
+    function launchConfetti() {
+      for(let i=0;i<100;i++){
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * window.innerWidth + 'px';
+        confetti.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+        confetti.style.animationDuration = 1 + Math.random()*2 + 's';
+        document.body.appendChild(confetti);
+        setTimeout(()=>confetti.remove(), 3000);
+      }
+    }
+
+    showQuestion();
+  </script>
+</body>
+</html>
