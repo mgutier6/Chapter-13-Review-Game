@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🎉 Mario Stats Kart</title>
+<title>🎉 Mario Stats Kart - Lanes & Powerups</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #scoreboard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
@@ -27,30 +27,43 @@ canvas.height = window.innerHeight;
 
 let score=0, powerups=0;
 
-// Track & camera
-const trackLength = 3000; // x-length
+// Track & lanes
+const trackLength = 5000; // longer track
+const laneCount = 4;
+const laneHeight = canvas.height / (laneCount+1);
 let cameraX = 0;
 
 // Player
-const player = {x:100, y:canvas.height-150, width:50, height:50, color:'red', speed:5};
+let playerLane = 1; // 0 to 3
+const player = {x:100, lane:playerLane, width:50, height:50, color:'red', speed:5};
 
 // AI drivers
 const aiDrivers = [
-  {x:150, y:canvas.height-150, width:50, height:50, color:'blue', speed:2},
-  {x:200, y:canvas.height-150, width:50, height:50, color:'green', speed:2.2},
-  {x:250, y:canvas.height-150, width:50, height:50, color:'purple', speed:2.5}
+  {lane:0, x:150, width:50, height:50, color:'blue', speed:3},
+  {lane:2, x:200, width:50, height:50, color:'green', speed:3.2},
+  {lane:3, x:250, width:50, height:50, color:'purple', speed:3.5}
 ];
 
-// Lucky blocks with hit status
+// Lucky blocks
 const questions = [
   {q:"Why do sample proportions vary?", a:"Random sampling variability", options:["Random sampling variability","Always same","Depends on n"]},
   {q:"Randomization Condition?", a:"Sample randomly selected", options:["Random sample","Population small","Sample >10%"]},
   {q:"10% Condition?", a:"Sample <10% population", options:["Sample <10%","Sample >50%","Sample = population"]},
-  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Skewed","Uniform"]}
+  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Skewed","Uniform"]},
+  {q:"p represents?", a:"True population proportion", options:["True population proportion","Sample proportion","Parameter"]},
+  {q:"Parameter vs Statistic?", a:"Parameter=population, Statistic=sample", options:["Parameter=population, Statistic=sample","Both are same","Parameter=sample, Statistic=population"]},
+  {q:"p^ represents?", a:"Sample proportion", options:["Sample proportion","Population proportion","Variance"]},
+  {q:"q = ?", a:"1 - p", options:["1 - p","p - 1","p^2"]},
+  {q:"Larger samples more accurate?", a:"True", options:["True","False","Depends on population"]},
+  {q:"Sampling variability?", a:"Natural differences between samples", options:["Natural differences between samples","Random error","Bias"]},
 ];
+
+// Generate spaced lucky blocks
 let blocks = [];
-for(let i=0;i<10;i++){
-  blocks.push({x:400+i*250, y:canvas.height/2 + (Math.random()*300-150), width:50, height:50, hit:false});
+for(let i=0;i<questions.length;i++){
+  const lane = i % laneCount;
+  const spacing = 300 + i*400; // space along track
+  blocks.push({x:spacing, lane:lane, width:50, height:50, hit:false, questionIndex:i});
 }
 
 // Controls
@@ -58,58 +71,72 @@ const keys = {};
 window.addEventListener('keydown', e=>keys[e.key]=true);
 window.addEventListener('keyup', e=>keys[e.key]=false);
 
-// Scoreboard update
+// Update scoreboard
 function updateScoreboard(){ document.getElementById('scoreboard').innerText = `Score: ${score} | Power-ups: ${powerups}`; }
 
-// Collision
-function isColliding(a,b){ return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
+// Collision detection
+function isColliding(a,b){ 
+  const aY = a.lane*laneHeight + laneHeight/2 - a.height/2;
+  const bY = b.lane*laneHeight + laneHeight/2 - b.height/2;
+  return a.x < b.x + b.width && a.x + a.width > b.x && aY < bY + b.height && aY + a.height > bY;
+}
 
-// Multiple choice UI
+// Question UI
 const questionPanel = document.getElementById('questionPanel');
 const questionText = document.getElementById('questionText');
 const answerButtons = document.getElementById('answerButtons');
 
 function askQuestion(block){
-  const qIndex = Math.floor(Math.random()*questions.length);
-  const q = questions[qIndex];
+  const q = questions[block.questionIndex];
   questionText.innerText = q.q;
   answerButtons.innerHTML = '';
   q.options.forEach(opt=>{
     const btn = document.createElement('button');
     btn.innerText = opt;
     btn.onclick = ()=>{
+      questionPanel.style.display='none';
+      block.hit=true;
       if(opt === q.a){
-        score++; powerups++;
-        alert("Correct! You got a power-up 🎉");
+        score++;
+        powerups++;
+        // Random powerup: boost player or slow AI
+        if(Math.random()<0.5){
+          player.speed += 2; 
+          setTimeout(()=>player.speed -= 2, 3000);
+        } else{
+          aiDrivers.forEach(ai=>ai.speed -= 1);
+          setTimeout(()=>aiDrivers.forEach(ai=>ai.speed +=1), 3000);
+        }
+        alert("Correct! Power-up activated!");
       } else { alert("Wrong! No power-up 😢"); }
       updateScoreboard();
-      questionPanel.style.display='none';
     }
     answerButtons.appendChild(btn);
   });
   questionPanel.style.display='block';
 }
 
+// Move player lane up/down
+function movePlayerLane(){
+  if(keys['ArrowUp'] && player.lane>0){ player.lane--; keys['ArrowUp']=false; }
+  if(keys['ArrowDown'] && player.lane<laneCount-1){ player.lane++; keys['ArrowDown']=false; }
+}
+
 // Main loop
 function loop(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Move player
-  if(keys['ArrowUp']) player.y -= player.speed;
-  if(keys['ArrowDown']) player.y += player.speed;
-  if(keys['ArrowLeft']) player.x -= player.speed;
-  if(keys['ArrowRight']) player.x += player.speed;
-
-  // Keep in bounds vertically
-  player.y = Math.max(50, Math.min(canvas.height-100, player.y));
+  movePlayerLane();
 
   // Camera follows player
   cameraX = player.x - 200;
 
-  // Draw background (fun repeating pattern)
+  // Draw track background
   for(let i=0;i<trackLength;i+=100){
     ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
-    ctx.fillRect(i - cameraX, canvas.height/2, 100, 20);
+    for(let l=0;l<laneCount;l++){
+      ctx.fillRect(i - cameraX, l*laneHeight + laneHeight/2 - 10, 100, 20);
+    }
   }
 
   // Draw finish line
@@ -121,24 +148,24 @@ function loop(){
   blocks.forEach(block=>{
     if(!block.hit){
       ctx.fillStyle='gold';
-      ctx.fillRect(block.x - cameraX, block.y, block.width, block.height);
-      if(isColliding(player,block)){
-        block.hit=true;
-        askQuestion(block);
-      }
+      ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
+      if(isColliding(player,block)) askQuestion(block);
     }
   });
 
   // Draw player
-  ctx.fillStyle=player.color;
-  ctx.fillRect(player.x - cameraX, player.y, player.width, player.height);
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x - cameraX, player.lane*laneHeight + laneHeight/2 - player.height/2, player.width, player.height);
 
   // Move & draw AI
   aiDrivers.forEach(ai=>{
     ai.x += ai.speed;
     ctx.fillStyle=ai.color;
-    ctx.fillRect(ai.x - cameraX, ai.y, ai.width, ai.height);
+    ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 - ai.height/2, ai.width, ai.height);
   });
+
+  // Move player forward automatically
+  player.x += player.speed;
 
   // Check finish
   if(player.x + player.width >= finishX){
