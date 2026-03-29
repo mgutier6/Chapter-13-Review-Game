@@ -3,70 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stats Quiz Game</title>
+  <title>🎈 Balloon Pop Stats Game!</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to right, #6a11cb, #2575fc);
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       margin: 0;
-      flex-direction: column;
-      text-align: center;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to top, #87cefa, #ffebcd);
     }
 
-    h1 {
-      margin-bottom: 10px;
-    }
-
-    .question-box {
-      background: rgba(0,0,0,0.3);
-      padding: 20px;
-      border-radius: 15px;
-      max-width: 600px;
-      margin-bottom: 20px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.5);
-    }
-
-    .answer-btn {
-      display: block;
-      margin: 10px auto;
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      background: rgba(255,255,255,0.7);
       padding: 10px 20px;
-      border-radius: 10px;
-      border: none;
-      background-color: #ffdd57;
-      color: #000;
+      border-radius: 12px;
+    }
+
+    .balloon {
+      position: absolute;
+      padding: 10px 20px;
+      background: radial-gradient(circle at 30% 30%, #ff6666, #cc0000);
+      border-radius: 50%;
+      color: #fff;
       font-weight: bold;
       cursor: pointer;
-      width: 80%;
-      max-width: 400px;
-      transition: 0.3s;
+      user-select: none;
+      animation: floatUp linear;
     }
 
-    .answer-btn:hover {
-      background-color: #ffc107;
+    @keyframes floatUp {
+      0% { transform: translateY(100vh); }
+      100% { transform: translateY(-100px); }
     }
 
-    .feedback {
-      margin-top: 10px;
-      font-weight: bold;
-      font-size: 18px;
+    .pop {
+      animation: popAnim 0.3s forwards;
     }
 
-    .score {
-      margin-top: 20px;
-      font-size: 20px;
+    @keyframes popAnim {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
     }
 
     .confetti {
       position: absolute;
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       background-color: #ffdd57;
-      animation: fall 2s linear infinite;
+      animation: fall 2s linear forwards;
     }
 
     @keyframes fall {
@@ -76,97 +66,99 @@
   </style>
 </head>
 <body>
-  <h1>📊 Stats Quiz Game!</h1>
-  <div class="question-box">
-    <div id="question">Loading question...</div>
-    <div id="answers"></div>
-    <div class="feedback" id="feedback"></div>
-  </div>
-  <div class="score" id="score">Score: 0</div>
+  <div id="scoreboard">Score: 0 | Lives: 3</div>
 
   <script>
     const questions = [
-      {q: "Why do sample proportions vary from sample to sample?", a: "Due to random sampling variability"},
-      {q: "What is the Randomization Condition?", a: "The sample must be randomly selected"},
-      {q: "What is the 10% Condition?", a: "The sample size must be less than 10% of the population"},
-      {q: "What shape does the sampling distribution of p^ have?", a: "Approximately normal"},
-      {q: "What does p represent?", a: "The true population proportion"},
-      {q: "What is the difference between a parameter and a statistic?", a: "A parameter describes a population, while a statistic describes a sample"},
-      {q: "What does p^ represent?", a: "The sample proportion"},
-      {q: "What does q equal in proportion problems?", a: "q = 1 - p"},
-      {q: "True or False: Larger samples give more accurate estimates.", a: "True"},
-      {q: "What is sampling variability?", a: "The natural differences between sample results"},
-      {q: "If p=0.5, what is the mean of the sampling distribution?", a: "0.5"},
-      {q: "If n=10 vs n=100, which has more spread?", a: "n=10"},
-      {q: "Which condition is most important for using a normal model?", a: "Success/Failure condition"}
+      {q: "Why do sample proportions vary from sample to sample?", a: "Random sampling variability"},
+      {q: "Randomization Condition?", a: "Sample randomly selected"},
+      {q: "10% Condition?", a: "Sample <10% population"},
+      {q: "Sampling distribution of p^ shape?", a: "Approximately normal"},
+      {q: "p represents?", a: "True population proportion"},
+      {q: "Parameter vs Statistic?", a: "Parameter=population, Statistic=sample"},
+      {q: "p^ represents?", a: "Sample proportion"},
+      {q: "q = ?", a: "1 - p"},
+      {q: "Larger samples more accurate?", a: "True"},
+      {q: "Sampling variability?", a: "Natural differences between samples"},
+      {q: "p=0.5 mean of sampling distribution?", a: "0.5"},
+      {q: "n=10 vs n=100 more spread?", a: "n=10"},
+      {q: "Most important for normal model?", a: "Success/Failure condition"}
     ];
 
-    let currentQuestion = 0;
     let score = 0;
+    let lives = 3;
 
-    function shuffle(array) {
-      return array.sort(() => Math.random() - 0.5);
+    function updateScoreboard() {
+      document.getElementById('scoreboard').innerText = `Score: ${score} | Lives: ${lives}`;
     }
 
-    function showQuestion() {
-      if(currentQuestion >= questions.length) {
-        document.getElementById('question').innerText = "🎉 Congrats! You finished the quiz!";
-        document.getElementById('answers').innerHTML = "";
-        launchConfetti();
-        return;
+    function launchConfetti(x, y){
+      for(let i=0;i<20;i++){
+        const c = document.createElement('div');
+        c.className='confetti';
+        c.style.left = x + 'px';
+        c.style.top = y + 'px';
+        c.style.backgroundColor = `hsl(${Math.random()*360},100%,50%)`;
+        document.body.appendChild(c);
+        setTimeout(()=>c.remove(), 2000);
+      }
+    }
+
+    function spawnBalloon() {
+      if(lives <= 0) return;
+
+      const balloon = document.createElement('div');
+      balloon.className = 'balloon';
+
+      // Pick random question and 1 correct + 2 wrong answers
+      const qIndex = Math.floor(Math.random()*questions.length);
+      const question = questions[qIndex];
+      const answers = [question.a];
+
+      while(answers.length<3){
+        const r = questions[Math.floor(Math.random()*questions.length)].a;
+        if(!answers.includes(r)) answers.push(r);
       }
 
-      const q = questions[currentQuestion];
-      document.getElementById('question').innerText = q.q;
-      document.getElementById('feedback').innerText = "";
+      balloon.innerText = answers[Math.floor(Math.random()*answers.length)];
+      balloon.style.left = Math.random()*(window.innerWidth-100) + 'px';
+      balloon.style.animationDuration = (5+Math.random()*3) + 's';
 
-      // Create multiple-choice buttons
-      let options = [q.a];
-      // Add 3 random wrong answers
-      while(options.length < 4){
-        let random = questions[Math.floor(Math.random()*questions.length)].a;
-        if(!options.includes(random)) options.push(random);
-      }
+      document.body.appendChild(balloon);
 
-      options = shuffle(options);
+      balloon.onclick = () => {
+        if(balloon.innerText === question.a){
+          score++;
+          updateScoreboard();
+          balloon.classList.add('pop');
+          launchConfetti(parseInt(balloon.style.left), window.innerHeight*0.8);
+          setTimeout(()=>balloon.remove(),300);
+        } else {
+          lives--;
+          updateScoreboard();
+          balloon.style.transform = "translateX(-10px)";
+          setTimeout(()=>balloon.style.transform="", 100);
+          if(lives<=0){
+            alert(`Game Over! Final Score: ${score}`);
+            location.reload();
+          }
+        }
+      };
 
-      const answersDiv = document.getElementById('answers');
-      answersDiv.innerHTML = "";
-      options.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = "answer-btn";
-        btn.innerText = opt;
-        btn.onclick = () => checkAnswer(opt);
-        answersDiv.appendChild(btn);
+      // Remove balloon after it floats off screen
+      balloon.addEventListener('animationend', ()=>{
+        if(document.body.contains(balloon)) {
+          balloon.remove();
+          if(lives>0) spawnBalloon(); // keep the game going
+        }
       });
+
+      // spawn next balloon randomly after 0.5–1.5s
+      setTimeout(spawnBalloon, 500+Math.random()*1000);
     }
 
-    function checkAnswer(selected) {
-      const correct = questions[currentQuestion].a;
-      if(selected === correct){
-        document.getElementById('feedback').innerText = "✅ Correct!";
-        score++;
-        document.getElementById('score').innerText = `Score: ${score}`;
-      } else {
-        document.getElementById('feedback').innerText = `❌ Wrong! Correct answer: ${correct}`;
-      }
-      currentQuestion++;
-      setTimeout(showQuestion, 1500);
-    }
-
-    function launchConfetti() {
-      for(let i=0;i<100;i++){
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti';
-        confetti.style.left = Math.random() * window.innerWidth + 'px';
-        confetti.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
-        confetti.style.animationDuration = 1 + Math.random()*2 + 's';
-        document.body.appendChild(confetti);
-        setTimeout(()=>confetti.remove(), 3000);
-      }
-    }
-
-    showQuestion();
+    updateScoreboard();
+    spawnBalloon();
   </script>
 </body>
 </html>
