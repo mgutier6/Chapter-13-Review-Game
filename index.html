@@ -19,7 +19,7 @@ canvas { display:block; }
 
 <div id="startScreen">
   <h1>Chapter 13 Review</h1>
-  <div class="avatarHint" style="font-size:20px; margin-top:10px;">Tip: Default avatar is a red block</div>
+  <div style="font-size:20px; margin-top:10px;">Tip: Default avatar is a red block</div>
   <button id="startButton">Start</button>
 </div>
 
@@ -48,6 +48,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let gameStarted = false;
+let gamePaused = false;
 let startTime, elapsedTime = 0;
 const baseSpeed = 3.5;
 const laneCount = 4;
@@ -59,9 +60,9 @@ const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', spee
 
 // ---------- AI ----------
 const aiDrivers = [
-  {lane:0, x:150, width:50, height:50, color:'blue', speed:baseSpeed, yOffset:0, targetDir:0},
-  {lane:2, x:200, width:50, height:50, color:'green', speed:baseSpeed, yOffset:0, targetDir:0},
-  {lane:3, x:250, width:50, height:50, color:'purple', speed:baseSpeed, yOffset:0, targetDir:0}
+  {lane:0, x:150, width:50, height:50, color:'blue', speed:baseSpeed, yOffset:0},
+  {lane:2, x:200, width:50, height:50, color:'green', speed:baseSpeed, yOffset:0},
+  {lane:3, x:250, width:50, height:50, color:'purple', speed:baseSpeed, yOffset:0}
 ];
 
 // ---------- QUESTIONS ----------
@@ -82,7 +83,7 @@ const questions = [
   {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// ---------- OBSTACLES & BLOCKS ----------
+// ---------- OBSTACLES & LUCKY BLOCKS ----------
 const obstacles = [];
 const luckyBlocks = [];
 const totalTrackLength = 15000;
@@ -156,66 +157,72 @@ function showQuestion(block, callback){
   });
 }
 
-// ---------- COLLISION DETECTION ----------
-function checkCollision(a,b){return a.x<a.x+b.width && a.x+b.width>a.x && a.y<b.y+b.height && a.y+b.height>b.y;}
-
 // ---------- GAME LOOP ----------
 function loop(){
   if(!gameStarted) return;
   if(!gamePaused){
-    // Update timer
     elapsedTime=(Date.now()-startTime)/1000;
     document.getElementById('timerBoard').innerText = `Time: ${elapsedTime.toFixed(1)}s`;
+
     // Player movement
     if(keys.ArrowUp) player.yOffset-=2;
     if(keys.ArrowDown) player.yOffset+=2;
     if(player.yOffset<-laneHeight/2) player.yOffset=-laneHeight/2;
     if(player.yOffset>laneHeight/2) player.yOffset=laneHeight/2;
     player.x+=player.speed;
+
+    // Camera
     cameraX = player.x - 200;
+    if(cameraX<0) cameraX=0;
+    if(cameraX>totalTrackLength-canvas.width) cameraX=totalTrackLength-canvas.width;
 
     // AI movement
     aiDrivers.forEach(ai=>{
       ai.x+=ai.speed;
-      // Simple maneuver around obstacles in lane
+      // AI maneuvers around obstacles in lane
       obstacles.filter(o=>o.lane===ai.lane).forEach(obs=>{
-        if(Math.abs(ai.x-obs.x)<60){
-          if(ai.yOffset<=0) ai.yOffset+=2;
-          else ai.yOffset-=2;
+        if(Math.abs((ai.x+ai.width/2)-(obs.x+obs.width/2))<60){
+          ai.yOffset+=Math.random()<0.5?2:-2;
         }
       });
       if(ai.yOffset<-laneHeight/2) ai.yOffset=-laneHeight/2;
       if(ai.yOffset>laneHeight/2) ai.yOffset=laneHeight/2;
     });
 
-    // Check lucky block
+    // Check lucky blocks
     luckyBlocks.forEach((lb,i)=>{
-      if(Math.abs(lb.x-player.x)<50){
+      if(Math.abs(lb.x - (player.x + player.width/2)) < 40){
         luckyBlocks.splice(i,1);
         showQuestion(lb,()=>{});
       }
     });
   }
 
-  // DRAW
+  // DRAW EVERYTHING
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   // Lanes
   for(let l=0;l<laneCount;l++){
-    ctx.fillStyle="#ccc"; ctx.fillRect(0, l*laneHeight + laneHeight/2, canvas.width,2);
+    ctx.fillStyle="#ccc"; 
+    ctx.fillRect(0, l*laneHeight + laneHeight/2, canvas.width, 2);
   }
+
   // Obstacles
   obstacles.forEach(o=>{
     ctx.fillStyle="red";
-    ctx.fillRect(o.x - cameraX, o.lane*laneHeight + laneHeight/2 + o.yOffset, o.width, o.height);
+    ctx.fillRect(o.x-cameraX, o.lane*laneHeight + laneHeight/2 + (o.yOffset||0), o.width, o.height);
   });
+
   // Lucky blocks
   luckyBlocks.forEach(lb=>{
     ctx.fillStyle="yellow";
     ctx.fillRect(lb.x-cameraX, lb.lane*laneHeight + laneHeight/2 + (lb.yOffset||0), lb.width, lb.height);
   });
+
   // Player
   ctx.fillStyle=player.color;
   ctx.fillRect(player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset, player.width, player.height);
+
   // AI
   aiDrivers.forEach(ai=>{
     ctx.fillStyle=ai.color;
@@ -225,6 +232,8 @@ function loop(){
   // Finish line
   ctx.fillStyle="black";
   ctx.fillRect(totalTrackLength-cameraX, 0, 20, canvas.height);
+
+  // Finish check
   if(player.x>=totalTrackLength){
     gameStarted=false;
     const name = prompt("You finished! Enter your name for high score:");
@@ -239,6 +248,5 @@ function loop(){
   requestAnimationFrame(loop);
 }
 </script>
-
 </body>
 </html>
