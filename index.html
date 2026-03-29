@@ -79,12 +79,11 @@ const questions = [
   {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// Lucky blocks
+// Lucky blocks - only player lane
 let blocks = [];
-for(let i=0;i<questions.length;i++){
-  const lane = i % laneCount;
-  const spacing = 500 + i*1000; 
-  blocks.push({x:spacing, lane:lane, width:50, height:50, hit:false, questionIndex:i});
+for(let i=0;i<questions.length*2;i++){ // more blocks for more fun
+  const spacing = 500 + i*1200 + Math.random()*300; 
+  blocks.push({x:spacing, lane:player.lane, width:50, height:50, hit:false, questionIndex:i % questions.length});
 }
 
 // Obstacles
@@ -226,14 +225,18 @@ function loop(){
       }
     });
 
-    // Move & draw AI
+    // Move & draw AI with barrier logic
     aiDrivers.forEach(ai=>{
-      ai.x += ai.speed;
+      let blocked = obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:ai.x+ai.speed}, obs));
+      let blockAhead = blocks.some(b=>!b.hit && b.lane===ai.lane && isColliding({...ai,x:ai.x+ai.speed}, b));
+      if(!blocked && !blockAhead){
+        ai.x += ai.speed;
+      }
       ctx.fillStyle=ai.color;
       ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 - ai.height/2, ai.width, ai.height);
     });
 
-    // Move player forward
+    // Move player forward with barrier check
     let nextX = player.x + player.speed;
     if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))){
       player.x = nextX;
