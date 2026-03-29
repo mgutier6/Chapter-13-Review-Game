@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🔥 Mario Stats Kart - Ultimate Lanes</title>
+<title>🔥 Mario Stats Kart - Ultimate Lanes v2</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #scoreboard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
-#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20; max-width:400px; text-align:center;}
+#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20; max-width:500px; text-align:center;}
 #questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
 canvas { display:block; }
 </style>
@@ -25,13 +25,13 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let score=0, powerups=0;
+let score = 0, powerups = 0;
 let gamePaused = false;
 
 // Track & lanes
-const trackLength = 10000; // LONG track for ~3 min
+const trackLength = 15000; // 5+ minutes
 const laneCount = 4;
-const laneHeight = canvas.height / (laneCount+1);
+const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Player
@@ -44,35 +44,39 @@ const aiDrivers = [
   {lane:3, x:250, width:50, height:50, color:'purple', speed:3.5}
 ];
 
-// Lucky blocks
+// Original Questions
 const questions = [
-  {q:"Why do sample proportions vary?", a:"Random sampling variability", options:["Random sampling variability","Always same","Depends on n"]},
-  {q:"Randomization Condition?", a:"Sample randomly selected", options:["Random sample","Population small","Sample >10%"]},
-  {q:"10% Condition?", a:"Sample <10% population", options:["Sample <10%","Sample >50%","Sample = population"]},
-  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Skewed","Uniform"]},
-  {q:"p represents?", a:"True population proportion", options:["True population proportion","Sample proportion","Parameter"]},
-  {q:"Parameter vs Statistic?", a:"Parameter=population, Statistic=sample", options:["Parameter=population, Statistic=sample","Both are same","Parameter=sample, Statistic=population"]},
-  {q:"p^ represents?", a:"Sample proportion", options:["Sample proportion","Population proportion","Variance"]},
-  {q:"q = ?", a:"1 - p", options:["1 - p","p - 1","p^2"]},
-  {q:"Larger samples more accurate?", a:"True", options:["True","False","Depends on population"]},
-  {q:"Sampling variability?", a:"Natural differences between samples", options:["Natural differences between samples","Random error","Bias"]}
+  {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
+  {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
+  {q:"What is the 10% Condition?", a:"The sample size must be less than 10% of the population.", options:["Sample <10%","Sample >50%","Sample = population"]},
+  {q:"Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
+  {q:"What shape does the sampling distribution of p^ have?", a:"Approximately normal (if conditions are met).", options:["Approximately normal","Skewed","Uniform"]},
+  {q:"What does p represent?", a:"The true population proportion.", options:["The true population proportion.","Sample proportion","Parameter"]},
+  {q:"Parameter vs Statistic?", a:"A parameter describes a population, while a statistic describes a sample.", options:["Parameter describes population, Statistic describes sample","Both same","Parameter=sample, Statistic=population"]},
+  {q:"What does p^ represent?", a:"The sample proportion.", options:["Sample proportion","Population proportion","Variance"]},
+  {q:"What does q equal in proportion problems?", a:"q = 1 - p", options:["q = 1 - p","p - 1","p^2"]},
+  {q:"True or False: Larger samples give more accurate estimates.", a:"True.", options:["True","False","Depends on population"]},
+  {q:"What is sampling variability?", a:"The natural differences between sample results.", options:["Natural differences between samples","Random error","Bias"]},
+  {q:"If p=0.5, what is the mean of the sampling distribution?", a:"0.5", options:["0.5","0.4","0.6"]},
+  {q:"If n=10 vs n=100, which has more spread?", a:"n=10 (smaller samples have more variability).", options:["n=10","n=100","Same"]},
+  {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// Generate spaced lucky blocks in lanes
+// Generate lucky blocks
 let blocks = [];
 for(let i=0;i<questions.length;i++){
   const lane = i % laneCount;
-  const spacing = 500 + i*700; // more spaced
+  const spacing = 500 + i*1000; 
   blocks.push({x:spacing, lane:lane, width:50, height:50, hit:false, questionIndex:i});
 }
 
 // Obstacles within lanes
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
-  for(let i=0;i<15;i++){
+  for(let i=0;i<25;i++){
     const obsX = 400 + i*600 + Math.random()*200;
-    const obsY = l*laneHeight + laneHeight/2 - 20 + (Math.random()*40 -20);
-    obstacles.push({x:obsX, lane:l, width:50, height:50, yOffset:obsY-l*laneHeight - laneHeight/2});
+    const obsY = (Math.random()* (laneHeight-50)) - (laneHeight/2-25);
+    obstacles.push({x:obsX, lane:l, width:50, height:50, yOffset:obsY});
   }
 }
 
@@ -132,8 +136,31 @@ function askQuestion(block){
 // Move player inside lane
 function movePlayerLane(){
   const maxOffset = laneHeight/2 - player.height/2;
-  if(keys['ArrowUp']) { player.yOffset = Math.max(-maxOffset, player.yOffset - player.speed); }
-  if(keys['ArrowDown']) { player.yOffset = Math.min(maxOffset, player.yOffset + player.speed); }
+  if(keys['ArrowUp']) { 
+    let nextY = player.yOffset - player.speed;
+    // check obstacle collision
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({x:player.x,yOffset:nextY,width:player.width,height:player.height}, obs))){
+      player.yOffset = Math.max(-maxOffset, nextY); 
+    }
+  }
+  if(keys['ArrowDown']) { 
+    let nextY = player.yOffset + player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({x:player.x,yOffset:nextY,width:player.width,height:player.height}, obs))){
+      player.yOffset = Math.min(maxOffset, nextY); 
+    }
+  }
+}
+
+// Draw lane lines
+function drawLaneLines(){
+  ctx.strokeStyle='white';
+  ctx.lineWidth=2;
+  for(let l=1;l<laneCount;l++){
+    ctx.beginPath();
+    ctx.moveTo(0, l*laneHeight);
+    ctx.lineTo(canvas.width, l*laneHeight);
+    ctx.stroke();
+  }
 }
 
 // Main loop
@@ -149,15 +176,21 @@ function loop(){
     // Draw track background
     for(let i=0;i<trackLength;i+=100){
       ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
-      for(let l=0;l<laneCount;l++){
-        ctx.fillRect(i - cameraX, l*laneHeight + laneHeight/2 - 10, 100, 20);
-      }
+      ctx.fillRect(i - cameraX, 0, 100, canvas.height);
     }
+
+    drawLaneLines();
 
     // Draw finish line
     const finishX = trackLength - 100;
     ctx.fillStyle='black';
     ctx.fillRect(finishX - cameraX, 0, 20, canvas.height);
+
+    // Draw obstacles
+    obstacles.forEach(obs=>{
+      ctx.fillStyle='brown';
+      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+    });
 
     // Draw blocks
     blocks.forEach(block=>{
@@ -166,12 +199,6 @@ function loop(){
         ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
         if(isColliding(player,block)) askQuestion(block);
       }
-    });
-
-    // Draw obstacles
-    obstacles.forEach(obs=>{
-      ctx.fillStyle='brown';
-      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
     });
 
     // Move & draw AI
