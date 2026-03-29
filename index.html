@@ -2,135 +2,142 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎉 Mario Stats Kart!</title>
+<title>🎉 Mario Stats Kart Prototype</title>
 <style>
-  body { margin:0; font-family: 'Segoe UI', sans-serif; background: linear-gradient(to top,#87cefa,#ffebcd);}
-  #scoreboard {position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:24px;background:rgba(255,255,255,0.7);padding:10px 20px;border-radius:12px;}
-  #track {position:relative;width:100%;height:80vh;background:#7cfc00;overflow:hidden; margin-top: 50px;}
-  .driver {position:absolute;width:50px;height:50px;border-radius:50%;color:#fff;text-align:center;line-height:50px;font-weight:bold;}
-  #player {background:#ff4500;}
-  .ai {background:#1e90ff;}
-  .block {position:absolute;width:40px;height:40px;background:gold;border-radius:8px;text-align:center;font-weight:bold;line-height:40px;cursor:pointer;animation:floatUp 5s linear infinite;}
-  @keyframes floatUp {0% {top:80%;}100%{top:-50px;}}
-  .confetti {position:absolute;width:8px;height:8px;background-color:#ffdd57;animation:fall 2s linear forwards;}
-  @keyframes fall {0%{transform:translateY(0) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(360deg);opacity:0;}}
+  body {margin:0; overflow:hidden; background:#7ec0ee; font-family:sans-serif;}
+  canvas {display:block; background:#87cefa;}
+  #scoreboard {position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px;}
 </style>
 </head>
 <body>
 <div id="scoreboard">Score: 0 | Power-ups: 0</div>
-<div id="track"></div>
+<canvas id="game"></canvas>
 
 <script>
-const questions = [
-  {q:"Why do sample proportions vary?",a:"Random sampling variability"},
-  {q:"Randomization Condition?",a:"Sample randomly selected"},
-  {q:"10% Condition?",a:"Sample <10% population"},
-  {q:"Sampling distribution shape?",a:"Approximately normal"},
-];
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 let score = 0, powerups = 0;
 
-// Create drivers
-const track = document.getElementById('track');
-const player = document.createElement('div');
-player.id = 'player';
-player.className='driver';
-player.style.left='10px'; player.style.bottom='10px';
-player.innerText='YOU';
-track.appendChild(player);
+// Player
+const player = {x:100, y:canvas.height-100, width:50, height:50, color:'red', speed:5};
 
-const aiDrivers = [];
-for(let i=0;i<3;i++){
-  const ai = document.createElement('div');
-  ai.className='driver ai';
-  ai.style.left = (10 + i*60)+'px';
-  ai.style.bottom = '10px';
-  ai.innerText = 'AI'+(i+1);
-  track.appendChild(ai);
-  aiDrivers.push({el:ai,pos:10 + i*60});
+// AI drivers
+const aiDrivers = [
+  {x:150, y:canvas.height-100, width:50, height:50, color:'blue', speed:2},
+  {x:200, y:canvas.height-100, width:50, height:50, color:'green', speed:2.2},
+  {x:250, y:canvas.height-100, width:50, height:50, color:'purple', speed:2.5}
+];
+
+// Lucky blocks
+const questions = [
+  {q:"Why do sample proportions vary?", a:"Random sampling variability", options:["Random sampling variability","Always same","Depends on n"]},
+  {q:"Randomization Condition?", a:"Sample randomly selected", options:["Random sample","Population small","Sample >10%"]},
+  {q:"10% Condition?", a:"Sample <10% population", options:["Sample <10%","Sample >50%","Sample = population"]},
+  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Skewed","Uniform"]}
+];
+
+let blocks = [];
+for(let i=0;i<5;i++){
+  blocks.push({x:300+i*400, y:canvas.height/2 + (Math.random()*200-100), width:50, height:50, hit:false});
 }
+
+// Controls
+const keys = {};
+window.addEventListener('keydown', e=>keys[e.key]=true);
+window.addEventListener('keyup', e=>keys[e.key]=false);
 
 // Update scoreboard
-function updateScoreboard(){
-  document.getElementById('scoreboard').innerText = `Score: ${score} | Power-ups: ${powerups}`;
-}
+function updateScoreboard(){ document.getElementById('scoreboard').innerText = `Score: ${score} | Power-ups: ${powerups}`; }
 
-// Confetti
-function launchConfetti(x,y){
-  for(let i=0;i<20;i++){
-    const c = document.createElement('div');
-    c.className='confetti';
-    c.style.left = x+'px';
-    c.style.top = y+'px';
-    c.style.backgroundColor = `hsl(${Math.random()*360},100%,50%)`;
-    document.body.appendChild(c);
-    setTimeout(()=>c.remove(),2000);
-  }
-}
+// Collision detection
+function isColliding(a,b){ return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
 
-// Spawn lucky blocks
-function spawnBlock(){
-  const block = document.createElement('div');
-  block.className='block';
-  const qIndex = Math.floor(Math.random()*questions.length);
-  const question = questions[qIndex];
-  block.dataset.answer = question.a;
-  block.innerText='?';
-  block.style.left = Math.random()*(window.innerWidth-50)+'px';
-  track.appendChild(block);
+// Main game loop
+function loop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  block.onclick = ()=>{
-    const ans = prompt(question.q);
-    if(ans && ans.toLowerCase()===question.a.toLowerCase()){
-      powerups++;
-      score++;
-      updateScoreboard();
-      launchConfetti(parseInt(block.style.left), track.offsetTop + track.offsetHeight*0.5);
-    } 
-    block.remove();
-  }
+  // Move player
+  if(keys['ArrowUp']) player.y -= player.speed;
+  if(keys['ArrowDown']) player.y += player.speed;
+  if(keys['ArrowLeft']) player.x -= player.speed;
+  if(keys['ArrowRight']) player.x += player.speed;
 
-  // auto remove
-  setTimeout(()=>{ if(track.contains(block)) block.remove(); }, 7000);
+  // Keep in bounds
+  player.x = Math.max(0, Math.min(canvas.width-player.width, player.x));
+  player.y = Math.max(0, Math.min(canvas.height-player.height, player.y));
 
-  // spawn next block
-  setTimeout(spawnBlock, 3000+Math.random()*2000);
-}
+  // Draw player
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
 
-// Move drivers
-function moveDriver(driver, speed){
-  let pos = parseInt(driver.el.style.bottom);
-  pos += speed;
-  driver.el.style.bottom = pos+'px';
-  if(pos>=track.offsetHeight-50){
-    driver.el.style.bottom = (track.offsetHeight-50)+'px';
-    // Trigger final boss
-    if(driver.el===player){
-      setTimeout(finalBoss,500);
+  // Move and draw AI
+  aiDrivers.forEach(ai=>{
+    ai.x += ai.speed;
+    ctx.fillStyle=ai.color;
+    ctx.fillRect(ai.x, ai.y, ai.width, ai.height);
+  });
+
+  // Draw blocks
+  blocks.forEach(block=>{
+    if(!block.hit){
+      ctx.fillStyle='gold';
+      ctx.fillRect(block.x, block.y, block.width, block.height);
+      // Check collision
+      if(isColliding(player,block)){
+        block.hit = true;
+        askQuestion();
+      }
     }
-  } else {
-    requestAnimationFrame(()=>moveDriver(driver,speed));
+  });
+
+  // Draw finish line
+  const finishX = 3000;
+  ctx.fillStyle='black';
+  ctx.fillRect(finishX,0,20,canvas.height);
+
+  // Check finish
+  if(player.x + player.width >= finishX){
+    finalBoss();
+    return;
   }
+
+  requestAnimationFrame(loop);
 }
 
-// Final Boss
+// Multiple choice question
+function askQuestion(){
+  const qIndex = Math.floor(Math.random()*questions.length);
+  const q = questions[qIndex];
+
+  let choices = '';
+  q.options.forEach((o,i)=> choices += `${i+1}: ${o}\n`);
+  let ans = prompt(q.q + "\n" + choices);
+  if(ans && q.options[parseInt(ans)-1]===q.a){
+    score++;
+    powerups++;
+    alert("Correct! You got a power-up 🎉");
+  } else {
+    alert("Wrong! No power-up 😢");
+  }
+  updateScoreboard();
+}
+
+// Final boss
 function finalBoss(){
-  const finalQ = "Final boss: Solve p^ = ? for n=10, p=0.5";
-  const ans = prompt(finalQ);
-  if(ans && ans==='0.5'){
+  const finalQ = "Final Boss! Solve p^ = ? for n=10, p=0.5\n1: 0.5\n2: 0.4\n3: 0.6";
+  let ans = prompt(finalQ);
+  if(ans==='1'){
     alert("You saved the princess! 🎉🏁 Final Score: "+score);
   } else {
-    alert("Game Over! You failed the boss... Final Score: "+score);
+    alert("Game Over! Final Score: "+score);
   }
   location.reload();
 }
 
-// Start race
-spawnBlock();
-updateScoreboard();
-moveDriver({el:player},1);
-aiDrivers.forEach(ai=>{ moveDriver(ai, 0.5+Math.random()*0.5); });
+loop();
 </script>
 </body>
 </html>
