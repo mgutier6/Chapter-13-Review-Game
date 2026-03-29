@@ -31,16 +31,9 @@
       box-shadow: 0 0 15px rgba(0,0,0,0.5);
     }
 
-    input[type="text"] {
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      width: 80%;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-
-    button {
+    .answer-btn {
+      display: block;
+      margin: 10px auto;
       padding: 10px 20px;
       border-radius: 10px;
       border: none;
@@ -48,10 +41,12 @@
       color: #000;
       font-weight: bold;
       cursor: pointer;
+      width: 80%;
+      max-width: 400px;
       transition: 0.3s;
     }
 
-    button:hover {
+    .answer-btn:hover {
       background-color: #ffc107;
     }
 
@@ -84,9 +79,7 @@
   <h1>📊 Stats Quiz Game!</h1>
   <div class="question-box">
     <div id="question">Loading question...</div>
-    <input type="text" id="answerInput" placeholder="Type your answer here...">
-    <br>
-    <button onclick="checkAnswer()">Submit Answer</button>
+    <div id="answers"></div>
     <div class="feedback" id="feedback"></div>
   </div>
   <div class="score" id="score">Score: 0</div>
@@ -111,28 +104,51 @@
     let currentQuestion = 0;
     let score = 0;
 
+    function shuffle(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
     function showQuestion() {
       if(currentQuestion >= questions.length) {
-        document.getElementById('question').innerHTML = "🎉 Congrats! You finished the quiz!";
-        document.getElementById('answerInput').style.display = "none";
-        document.querySelector('button').style.display = "none";
+        document.getElementById('question').innerText = "🎉 Congrats! You finished the quiz!";
+        document.getElementById('answers').innerHTML = "";
         launchConfetti();
         return;
       }
-      document.getElementById('question').innerText = questions[currentQuestion].q;
-      document.getElementById('answerInput').value = "";
+
+      const q = questions[currentQuestion];
+      document.getElementById('question').innerText = q.q;
       document.getElementById('feedback').innerText = "";
+
+      // Create multiple-choice buttons
+      let options = [q.a];
+      // Add 3 random wrong answers
+      while(options.length < 4){
+        let random = questions[Math.floor(Math.random()*questions.length)].a;
+        if(!options.includes(random)) options.push(random);
+      }
+
+      options = shuffle(options);
+
+      const answersDiv = document.getElementById('answers');
+      answersDiv.innerHTML = "";
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = "answer-btn";
+        btn.innerText = opt;
+        btn.onclick = () => checkAnswer(opt);
+        answersDiv.appendChild(btn);
+      });
     }
 
-    function checkAnswer() {
-      const input = document.getElementById('answerInput').value.trim().toLowerCase();
-      const correct = questions[currentQuestion].a.toLowerCase();
-      if(input === correct) {
+    function checkAnswer(selected) {
+      const correct = questions[currentQuestion].a;
+      if(selected === correct){
         document.getElementById('feedback').innerText = "✅ Correct!";
         score++;
         document.getElementById('score').innerText = `Score: ${score}`;
       } else {
-        document.getElementById('feedback').innerText = `❌ Wrong! Correct answer: ${questions[currentQuestion].a}`;
+        document.getElementById('feedback').innerText = `❌ Wrong! Correct answer: ${correct}`;
       }
       currentQuestion++;
       setTimeout(showQuestion, 1500);
