@@ -1,252 +1,82 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🔥 Mario Stats Kart - Full Version</title>
+<title>🔥 Mario Stats Kart - Custom Avatar & Power-ups</title>
+<title>🔥 Mario Stats Kart - Avatar & Lane AI</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
-#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:20px; border-radius:15px; display:none; z-index:20; max-width:500px; text-align:center; background-image:url('question_background.png'); background-size:cover; background-position:center;}
-#questionPanel button { margin:5px; padding:10px 20px; font-size:16px; cursor:pointer; }
-#startScreen { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:48px; z-index:30; color:white; background-image:url('start_background.png'); background-size:cover; background-position:center; }
+@@ -11,6 +11,7 @@
+#startScreen { position:absolute; top:0; left:0; width:100%; height:100%; background:#333; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:48px; z-index:30; }
 #startScreen button { font-size:32px; padding:15px 30px; margin-top:20px; cursor:pointer; }
 #highScores { position:absolute; top:0; right:0; width:300px; background:rgba(255,255,255,0.9); padding:10px; border-radius:12px; z-index:10; max-height:80vh; overflow:auto;}
-#highScores ol { padding-left:20px; }
+#avatarHint { position:absolute; bottom:0; width:100%; text-align:center; font-size:20px; background:rgba(255,255,255,0.7); padding:10px;}
 canvas { display:block; }
 </style>
 </head>
-<body>
-
-<div id="startScreen">
-  <h1>Chapter 13 Review</h1>
-  <div style="font-size:20px; margin-top:10px;">Tip: Default avatar is a red block</div>
-  <button id="startButton">Start</button>
+@@ -29,6 +30,7 @@
 </div>
 
-<div id="timerBoard">Time: 0s</div>
-<div id="questionPanel">
-  <div id="questionText"></div>
-  <div id="answerButtons"></div>
-</div>
-
-<div id="highScores">
-  <h3>High Scores</h3>
-  <ol id="scoreList"></ol>
-</div>
+<div id="highScores"><h3>High Scores</h3><ol id="scoreList"></ol></div>
+<div id="avatarHint">Tip: You can add an avatar before starting the game!</div>
 
 <audio id="bgMusic" loop>
-  <source src="background.mp3" type="audio/mpeg">
-</audio>
+<source src="background.mp3" type="audio/mpeg">
+@@ -58,9 +60,9 @@
 
-<canvas id="game"></canvas>
-
-<script>
-// ---------- GAME SETUP ----------
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-let gameStarted = false;
-let gamePaused = false;
-let startTime, elapsedTime = 0;
-const baseSpeed = 3.5;
-const laneCount = 4;
-const laneHeight = canvas.height / (laneCount + 1);
-let cameraX = 0;
-
-// ---------- PLAYER ----------
-const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed, powerUp:false};
-
-// ---------- AI ----------
+// AI drivers
 const aiDrivers = [
+  {lane:0, x:150, width:50, height:50, color:'blue', speed:baseSpeed, targetLane:0},
+  {lane:2, x:200, width:50, height:50, color:'green', speed:baseSpeed, targetLane:2},
+  {lane:3, x:250, width:50, height:50, color:'purple', speed:baseSpeed, targetLane:3}
   {lane:0, x:150, width:50, height:50, color:'blue', speed:baseSpeed, yOffset:0},
   {lane:2, x:200, width:50, height:50, color:'green', speed:baseSpeed, yOffset:0},
   {lane:3, x:250, width:50, height:50, color:'purple', speed:baseSpeed, yOffset:0}
 ];
 
-// ---------- QUESTIONS ----------
-const questions = [
-  {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
-  {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
-  {q:"What is the 10% Condition?", a:"The sample size must be less than 10% of the population.", options:["Sample <10%","Sample >50%","Sample = population"]},
-  {q:"Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
-  {q:"What shape does the sampling distribution of p^ have?", a:"Approximately normal (if conditions are met).", options:["Approximately normal","Skewed","Uniform"]},
-  {q:"What does p represent?", a:"The true population proportion.", options:["The true population proportion.","Sample proportion","Parameter"]},
-  {q:"Parameter vs Statistic?", a:"A parameter describes a population, while a statistic describes a sample.", options:["Parameter describes population, Statistic describes sample","Both same","Parameter=sample, Statistic=population"]},
-  {q:"What does p^ represent?", a:"The sample proportion.", options:["Sample proportion","Population proportion","Variance"]},
-  {q:"What does q equal in proportion problems?", a:"q = 1 - p", options:["q = 1 - p","p - 1","p^2"]},
-  {q:"True or False: Larger samples give more accurate estimates.", a:"True.", options:["True","False","Depends on population"]},
-  {q:"What is sampling variability?", a:"The natural differences between sample results.", options:["Natural differences between samples","Random error","Bias"]},
-  {q:"If p=0.5, what is the mean of the sampling distribution?", a:"0.5", options:["0.5","0.4","0.6"]},
-  {q:"If n=10 vs n=100, which has more spread?", a:"n=10 (smaller samples have more variability).", options:["n=10","n=100","Same"]},
-  {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
-];
-
-// ---------- OBSTACLES & LUCKY BLOCKS ----------
-const obstacles = [];
-const luckyBlocks = [];
-const totalTrackLength = 15000;
-
-// Populate obstacles and lucky blocks
-for(let i=500;i<totalTrackLength;i+=700){
-  // Random obstacles in each lane
-  for(let l=0;l<laneCount;l++){
-    if(Math.random()<0.3) obstacles.push({x:i + Math.random()*200, lane:l, width:50, height:50});
-  }
-  // Lucky blocks only in player lane
-  if(i%1400===0) luckyBlocks.push({x:i, lane:player.lane, width:40, height:40});
+// Questions
+@@ -209,19 +211,24 @@
+});
 }
 
-// ---------- HIGH SCORES ----------
-function loadScores(){
-  const scores = JSON.parse(localStorage.getItem('highScores')||"[]");
-  const list = document.getElementById('scoreList');
-  list.innerHTML="";
-  scores.sort((a,b)=>a.time-b.time).forEach(s=>{
-    const li = document.createElement('li');
-    li.innerText = `${s.name}: ${s.time.toFixed(1)}s`;
-    list.appendChild(li);
-  });
-}
-loadScores();
+// AI movement with obstacle avoidance
+// AI movement with obstacle avoidance within lane
+function moveAI(ai){
+const maxOffset = laneHeight/2 - ai.height/2;
+  // Check obstacle ahead
+  let blocked = obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:ai.x+ai.speed}, obs));
+  let blockAhead = blocks.some(b=>!b.hit && b.lane===ai.lane && isColliding({...ai,x:ai.x+ai.speed}, b));
+  
+  if(blocked || blockAhead){
+    // Try to change lane up or down
+    if(ai.lane>0 && !obstacles.some(obs=>obs.lane===ai.lane-1 && isColliding({...ai,x:ai.x+ai.speed}, obs))){ ai.lane--; }
+    else if(ai.lane<laneCount-1 && !obstacles.some(obs=>obs.lane===ai.lane+1 && isColliding({...ai,x:ai.x+ai.speed}, obs))){ ai.lane++; }
+    else { /* cannot move */ }
+  } else { ai.x += ai.speed; }
+  let nextX = ai.x + ai.speed;
 
-// ---------- START BUTTON ----------
-document.getElementById('startButton').onclick = ()=>{
-  gameStarted = true;
-  startTime = Date.now();
-  document.getElementById('bgMusic').play();
-  document.getElementById('startScreen').style.display='none';
-  loop();
-};
-
-// ---------- KEY CONTROLS ----------
-const keys={ArrowUp:false, ArrowDown:false};
-window.addEventListener('keydown',e=>{if(e.key in keys) keys[e.key]=true;});
-window.addEventListener('keyup',e=>{if(e.key in keys) keys[e.key]=false;});
-
-// ---------- QUESTION PANEL ----------
-function showQuestion(block, callback){
-  gamePaused = true;
-  const qIndex = Math.floor(Math.random()*questions.length);
-  const q = questions[qIndex];
-  const panel = document.getElementById('questionPanel');
-  panel.style.display='block';
-  document.getElementById('questionText').innerText = q.q;
-  const buttonsDiv = document.getElementById('answerButtons');
-  buttonsDiv.innerHTML="";
-  q.options.forEach(opt=>{
-    const b = document.createElement('button');
-    b.innerText = opt;
-    b.onclick=()=>{
-      panel.style.display='none';
-      gamePaused=false;
-      // Apply powerups
-      if(opt===q.a){
-        const effect = Math.random()<0.5?"Speed Boost!":"Slowed AI!";
-        alert(effect);
-        if(effect==="Speed Boost!") player.speed=baseSpeed*1.5;
-        else aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.7);
-      } else {
-        aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
-        alert("Wrong! AI got a speed boost!");
-      }
-      callback();
-    };
-    buttonsDiv.appendChild(b);
-  });
+  // If obstacle ahead in lane, move up/down within lane
+  const blocked = obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:nextX}, obs));
+  if(!blocked){
+    ai.x = nextX;
+  } else {
+    // Try moving vertically within lane
+    if(ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset - ai.speed}, obs))){
+      ai.yOffset -= ai.speed;
+    } else if(ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset + ai.speed}, obs))){
+      ai.yOffset += ai.speed;
+    }
+    // else stay in place
+  }
 }
 
-// ---------- GAME LOOP ----------
-function loop(){
-  if(!gameStarted) return;
-  if(!gamePaused){
-    elapsedTime=(Date.now()-startTime)/1000;
-    document.getElementById('timerBoard').innerText = `Time: ${elapsedTime.toFixed(1)}s`;
+// Main loop
+@@ -260,7 +267,7 @@
+aiDrivers.forEach(ai=>{
+moveAI(ai);
+ctx.fillStyle=ai.color;
+      ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 - ai.height/2, ai.width, ai.height);
+      ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
+});
 
-    // Player movement
-    if(keys.ArrowUp) player.yOffset-=2;
-    if(keys.ArrowDown) player.yOffset+=2;
-    if(player.yOffset<-laneHeight/2) player.yOffset=-laneHeight/2;
-    if(player.yOffset>laneHeight/2) player.yOffset=laneHeight/2;
-    player.x+=player.speed;
-
-    // Camera
-    cameraX = player.x - 200;
-    if(cameraX<0) cameraX=0;
-    if(cameraX>totalTrackLength-canvas.width) cameraX=totalTrackLength-canvas.width;
-
-    // AI movement
-    aiDrivers.forEach(ai=>{
-      ai.x+=ai.speed;
-      // AI maneuvers around obstacles in lane
-      obstacles.filter(o=>o.lane===ai.lane).forEach(obs=>{
-        if(Math.abs((ai.x+ai.width/2)-(obs.x+obs.width/2))<60){
-          ai.yOffset+=Math.random()<0.5?2:-2;
-        }
-      });
-      if(ai.yOffset<-laneHeight/2) ai.yOffset=-laneHeight/2;
-      if(ai.yOffset>laneHeight/2) ai.yOffset=laneHeight/2;
-    });
-
-    // Check lucky blocks
-    luckyBlocks.forEach((lb,i)=>{
-      if(Math.abs(lb.x - (player.x + player.width/2)) < 40){
-        luckyBlocks.splice(i,1);
-        showQuestion(lb,()=>{});
-      }
-    });
-  }
-
-  // DRAW EVERYTHING
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // Lanes
-  for(let l=0;l<laneCount;l++){
-    ctx.fillStyle="#ccc"; 
-    ctx.fillRect(0, l*laneHeight + laneHeight/2, canvas.width, 2);
-  }
-
-  // Obstacles
-  obstacles.forEach(o=>{
-    ctx.fillStyle="red";
-    ctx.fillRect(o.x-cameraX, o.lane*laneHeight + laneHeight/2 + (o.yOffset||0), o.width, o.height);
-  });
-
-  // Lucky blocks
-  luckyBlocks.forEach(lb=>{
-    ctx.fillStyle="yellow";
-    ctx.fillRect(lb.x-cameraX, lb.lane*laneHeight + laneHeight/2 + (lb.yOffset||0), lb.width, lb.height);
-  });
-
-  // Player
-  ctx.fillStyle=player.color;
-  ctx.fillRect(player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset, player.width, player.height);
-
-  // AI
-  aiDrivers.forEach(ai=>{
-    ctx.fillStyle=ai.color;
-    ctx.fillRect(ai.x-cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset, ai.width, ai.height);
-  });
-
-  // Finish line
-  ctx.fillStyle="black";
-  ctx.fillRect(totalTrackLength-cameraX, 0, 20, canvas.height);
-
-  // Finish check
-  if(player.x>=totalTrackLength){
-    gameStarted=false;
-    const name = prompt("You finished! Enter your name for high score:");
-    const scores = JSON.parse(localStorage.getItem('highScores')||"[]");
-    scores.push({name, time:elapsedTime});
-    localStorage.setItem('highScores', JSON.stringify(scores));
-    loadScores();
-    alert(`Finished in ${elapsedTime.toFixed(1)}s`);
-    return;
-  }
-
-  requestAnimationFrame(loop);
-}
-</script>
-</body>
-</html>
+// Move player forward
