@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🎉 Mario Stats Kart - Lanes & Powerups</title>
+<title>🔥 Mario Stats Kart - Ultimate Lanes</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #scoreboard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
-#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20;}
+#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20; max-width:400px; text-align:center;}
 #questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
 canvas { display:block; }
 </style>
@@ -26,16 +26,16 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let score=0, powerups=0;
+let gamePaused = false;
 
 // Track & lanes
-const trackLength = 5000; // longer track
+const trackLength = 10000; // LONG track for ~3 min
 const laneCount = 4;
 const laneHeight = canvas.height / (laneCount+1);
 let cameraX = 0;
 
 // Player
-let playerLane = 1; // 0 to 3
-const player = {x:100, lane:playerLane, width:50, height:50, color:'red', speed:5};
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:5};
 
 // AI drivers
 const aiDrivers = [
@@ -55,15 +55,25 @@ const questions = [
   {q:"p^ represents?", a:"Sample proportion", options:["Sample proportion","Population proportion","Variance"]},
   {q:"q = ?", a:"1 - p", options:["1 - p","p - 1","p^2"]},
   {q:"Larger samples more accurate?", a:"True", options:["True","False","Depends on population"]},
-  {q:"Sampling variability?", a:"Natural differences between samples", options:["Natural differences between samples","Random error","Bias"]},
+  {q:"Sampling variability?", a:"Natural differences between samples", options:["Natural differences between samples","Random error","Bias"]}
 ];
 
-// Generate spaced lucky blocks
+// Generate spaced lucky blocks in lanes
 let blocks = [];
 for(let i=0;i<questions.length;i++){
   const lane = i % laneCount;
-  const spacing = 300 + i*400; // space along track
+  const spacing = 500 + i*700; // more spaced
   blocks.push({x:spacing, lane:lane, width:50, height:50, hit:false, questionIndex:i});
+}
+
+// Obstacles within lanes
+let obstacles = [];
+for(let l=0;l<laneCount;l++){
+  for(let i=0;i<15;i++){
+    const obsX = 400 + i*600 + Math.random()*200;
+    const obsY = l*laneHeight + laneHeight/2 - 20 + (Math.random()*40 -20);
+    obstacles.push({x:obsX, lane:l, width:50, height:50, yOffset:obsY-l*laneHeight - laneHeight/2});
+  }
 }
 
 // Controls
@@ -76,8 +86,8 @@ function updateScoreboard(){ document.getElementById('scoreboard').innerText = `
 
 // Collision detection
 function isColliding(a,b){ 
-  const aY = a.lane*laneHeight + laneHeight/2 - a.height/2;
-  const bY = b.lane*laneHeight + laneHeight/2 - b.height/2;
+  const aY = a.lane*laneHeight + laneHeight/2 + a.yOffset - a.height/2;
+  const bY = b.lane*laneHeight + laneHeight/2 + (b.yOffset||0) - b.height/2;
   return a.x < b.x + b.width && a.x + a.width > b.x && aY < bY + b.height && aY + a.height > bY;
 }
 
@@ -87,6 +97,7 @@ const questionText = document.getElementById('questionText');
 const answerButtons = document.getElementById('answerButtons');
 
 function askQuestion(block){
+  gamePaused = true; // stop all movement
   const q = questions[block.questionIndex];
   questionText.innerText = q.q;
   answerButtons.innerHTML = '';
@@ -99,78 +110,89 @@ function askQuestion(block){
       if(opt === q.a){
         score++;
         powerups++;
-        // Random powerup: boost player or slow AI
+        // Decide powerup
         if(Math.random()<0.5){
-          player.speed += 2; 
-          setTimeout(()=>player.speed -= 2, 3000);
+          alert("Correct! Power-up: SPEED BOOST! 🚀");
+          player.speed += 3; 
+          setTimeout(()=>player.speed -= 3, 4000);
         } else{
-          aiDrivers.forEach(ai=>ai.speed -= 1);
-          setTimeout(()=>aiDrivers.forEach(ai=>ai.speed +=1), 3000);
+          alert("Correct! Power-up: SLOW DOWN AI! 🐢");
+          aiDrivers.forEach(ai=>ai.speed -= 2);
+          setTimeout(()=>aiDrivers.forEach(ai=>ai.speed += 2), 4000);
         }
-        alert("Correct! Power-up activated!");
       } else { alert("Wrong! No power-up 😢"); }
       updateScoreboard();
+      gamePaused = false;
     }
     answerButtons.appendChild(btn);
   });
   questionPanel.style.display='block';
 }
 
-// Move player lane up/down
+// Move player inside lane
 function movePlayerLane(){
-  if(keys['ArrowUp'] && player.lane>0){ player.lane--; keys['ArrowUp']=false; }
-  if(keys['ArrowDown'] && player.lane<laneCount-1){ player.lane++; keys['ArrowDown']=false; }
+  const maxOffset = laneHeight/2 - player.height/2;
+  if(keys['ArrowUp']) { player.yOffset = Math.max(-maxOffset, player.yOffset - player.speed); }
+  if(keys['ArrowDown']) { player.yOffset = Math.min(maxOffset, player.yOffset + player.speed); }
 }
 
 // Main loop
 function loop(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  movePlayerLane();
+  if(!gamePaused){
+    movePlayerLane();
 
-  // Camera follows player
-  cameraX = player.x - 200;
+    // Camera follows player
+    cameraX = player.x - 200;
 
-  // Draw track background
-  for(let i=0;i<trackLength;i+=100){
-    ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
-    for(let l=0;l<laneCount;l++){
-      ctx.fillRect(i - cameraX, l*laneHeight + laneHeight/2 - 10, 100, 20);
+    // Draw track background
+    for(let i=0;i<trackLength;i+=100){
+      ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
+      for(let l=0;l<laneCount;l++){
+        ctx.fillRect(i - cameraX, l*laneHeight + laneHeight/2 - 10, 100, 20);
+      }
     }
-  }
 
-  // Draw finish line
-  const finishX = trackLength - 100;
-  ctx.fillStyle='black';
-  ctx.fillRect(finishX - cameraX, 0, 20, canvas.height);
+    // Draw finish line
+    const finishX = trackLength - 100;
+    ctx.fillStyle='black';
+    ctx.fillRect(finishX - cameraX, 0, 20, canvas.height);
 
-  // Draw blocks
-  blocks.forEach(block=>{
-    if(!block.hit){
-      ctx.fillStyle='gold';
-      ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
-      if(isColliding(player,block)) askQuestion(block);
+    // Draw blocks
+    blocks.forEach(block=>{
+      if(!block.hit){
+        ctx.fillStyle='gold';
+        ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
+        if(isColliding(player,block)) askQuestion(block);
+      }
+    });
+
+    // Draw obstacles
+    obstacles.forEach(obs=>{
+      ctx.fillStyle='brown';
+      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+    });
+
+    // Move & draw AI
+    aiDrivers.forEach(ai=>{
+      ai.x += ai.speed;
+      ctx.fillStyle=ai.color;
+      ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 - ai.height/2, ai.width, ai.height);
+    });
+
+    // Move player forward
+    player.x += player.speed;
+
+    // Draw player
+    ctx.fillStyle=player.color;
+    ctx.fillRect(player.x - cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
+
+    // Check finish
+    if(player.x + player.width >= trackLength - 100){
+      finalBoss();
+      return;
     }
-  });
-
-  // Draw player
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x - cameraX, player.lane*laneHeight + laneHeight/2 - player.height/2, player.width, player.height);
-
-  // Move & draw AI
-  aiDrivers.forEach(ai=>{
-    ai.x += ai.speed;
-    ctx.fillStyle=ai.color;
-    ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 - ai.height/2, ai.width, ai.height);
-  });
-
-  // Move player forward automatically
-  player.x += player.speed;
-
-  // Check finish
-  if(player.x + player.width >= finishX){
-    finalBoss();
-    return;
   }
 
   requestAnimationFrame(loop);
@@ -178,6 +200,7 @@ function loop(){
 
 // Final Boss
 function finalBoss(){
+  gamePaused = true;
   questionPanel.style.display='block';
   questionText.innerText = "Final Boss! Solve p^ = ? for n=10, p=0.5";
   answerButtons.innerHTML='';
