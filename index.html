@@ -1,355 +1,350 @@
+Skip to content
+mgutier6
+Chapter-13-Review-Game
+Repository navigation
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security
+Insights
+Settings
+Chapter-13-Review-Game
+/index.html
+Go to file
+t
+mgutier6
+mgutier6
+Change title and add avatar hint
+6383133
+ · 
+3 hours ago
+
+Code
+
+Blame
+322 lines (283 loc) · 12.1 KB
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🔥 Mario Stats Kart</title>
-
+<title>🔥 Mario Stats Kart - Avatar & Lane AI</title>
 <style>
-body { margin:0; overflow:hidden; font-family:sans-serif; }
-
-/* ---------- START SCREEN ---------- */
-#startScreen {
-  position:absolute;
-  top:0; left:0;
-  width:100%; height:100%;
-
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-
-  color:white;
-  font-size:50px;
-  z-index:10;
-
-  background-image: url('./start_background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-/* dark overlay for readability */
-#startScreen::before {
-  content:"";
-  position:absolute;
-  top:0; left:0;
-  width:100%; height:100%;
-  background: rgba(0,0,0,0.4);
-  z-index:-1;
-}
-
-#startScreen button {
-  font-size:30px;
-  padding:15px 30px;
-  margin-top:20px;
-}
-
-/* ---------- TIMER ---------- */
-#timerBoard {
-  position:absolute;
-  top:10px;
-  left:50%;
-  transform:translateX(-50%);
-  background:white;
-  padding:10px 20px;
-  border-radius:10px;
-  font-size:20px;
-}
-
-/* ---------- QUESTION PANEL ---------- */
-#questionPanel {
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  display:none;
-  z-index:20;
-
-  background-image: url('./question_background.png');
-  background-size: cover;
-  background-position: center;
-
-  padding:20px;
-  border-radius:15px;
-  max-width:500px;
-  text-align:center;
-}
-
-#questionPanel button {
-  margin:5px;
-  padding:10px;
-  cursor:pointer;
-}
-
-/* ---------- CANVAS ---------- */
+body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
+#timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
+#questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20; max-width:500px; text-align:center;}
+#questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
+#startScreen { position:absolute; top:0; left:0; width:100%; height:100%; background:#333; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:48px; z-index:30; }
+#startScreen button { font-size:32px; padding:15px 30px; margin-top:20px; cursor:pointer; }
+#highScores { position:absolute; top:0; right:0; width:300px; background:rgba(255,255,255,0.9); padding:10px; border-radius:12px; z-index:10; max-height:80vh; overflow:auto;}
+#avatarHint { position:absolute; bottom:0; width:100%; text-align:center; font-size:20px; background:rgba(255,255,255,0.7); padding:10px;}
 canvas { display:block; }
 </style>
 </head>
-
 <body>
 
 <div id="startScreen">
-  <div>Chapter 13 Review</div>
-  <button id="startBtn">Start</button>
+  Chapter 13 Review
+  <input type="file" id="avatarInput" accept="image/*">
+  <button id="startButton">Start</button>
 </div>
 
-<div id="timerBoard">Time: 0</div>
-
+<div id="timerBoard">Time: 0s</div>
 <div id="questionPanel">
   <div id="questionText"></div>
-  <div id="answers"></div>
+  <div id="answerButtons"></div>
 </div>
 
-<audio id="music" loop src="background.mp3"></audio>
+<div id="highScores"><h3>High Scores</h3><ol id="scoreList"></ol></div>
+<div id="avatarHint">Tip: You can add an avatar before starting the game!</div>
+
+<audio id="bgMusic" loop>
+  <source src="background.mp3" type="audio/mpeg">
+</audio>
 
 <canvas id="game"></canvas>
 
 <script>
-// ---------- SETUP ----------
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const laneCount = 4;
-const laneHeight = canvas.height / (laneCount+1);
+let gamePaused = false;
+let gameStarted = false;
+let startTime, elapsedTime=0;
 const baseSpeed = 3.5;
+
+// Track & lanes
 const trackLength = 20000;
-
+const laneCount = 4;
+const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
-let gameStarted=false;
-let gamePaused=false;
-let startTime;
 
-// ---------- PLAYER ----------
-const player = {
-  x:100,
-  lane:1,
-  yOffset:0,
-  width:50,
-  height:50,
-  speed:baseSpeed
-};
+// Player
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed, avatarImg:null};
 
-// ---------- AI ----------
+// AI drivers
 const aiDrivers = [
-  {lane:0,x:150,yOffset:0,width:50,height:50,speed:baseSpeed},
-  {lane:2,x:200,yOffset:0,width:50,height:50,speed:baseSpeed},
-  {lane:3,x:250,yOffset:0,width:50,height:50,speed:baseSpeed}
+  {lane:0, x:150, width:50, height:50, color:'blue', speed:baseSpeed, yOffset:0},
+  {lane:2, x:200, width:50, height:50, color:'green', speed:baseSpeed, yOffset:0},
+  {lane:3, x:250, width:50, height:50, color:'purple', speed:baseSpeed, yOffset:0}
 ];
 
-// ---------- QUESTIONS ----------
+// Questions
 const questions = [
-  {q:"Why do sample proportions vary?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
-  {q:"Randomization Condition?", a:"Sample randomly selected", options:["Sample randomly selected","Sample large","Population small"]},
-  {q:"10% Condition?", a:"Sample <10%", options:["Sample <10%","Sample >50%","Any sample"]},
-  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Uniform","Skewed"]}
+  {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
+  {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
+  {q:"What is the 10% Condition?", a:"The sample size must be less than 10% of the population.", options:["Sample <10%","Sample >50%","Sample = population"]},
+  {q:"Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
+  {q:"What shape does the sampling distribution of p^ have?", a:"Approximately normal (if conditions are met).", options:["Approximately normal","Skewed","Uniform"]},
+  {q:"What does p represent?", a:"The true population proportion.", options:["The true population proportion.","Sample proportion","Parameter"]},
+  {q:"Parameter vs Statistic?", a:"A parameter describes a population, while a statistic describes a sample.", options:["Parameter describes population, Statistic describes sample","Both same","Parameter=sample, Statistic=population"]},
+  {q:"What does p^ represent?", a:"The sample proportion.", options:["Sample proportion","Population proportion","Variance"]},
+  {q:"What does q equal in proportion problems?", a:"q = 1 - p", options:["q = 1 - p","p - 1","p^2"]},
+  {q:"True or False: Larger samples give more accurate estimates.", a:"True.", options:["True","False","Depends on population"]},
+  {q:"What is sampling variability?", a:"The natural differences between sample results.", options:["Natural differences between samples","Random error","Bias"]},
+  {q:"If p=0.5, what is the mean of the sampling distribution?", a:"0.5", options:["0.5","0.4","0.6"]},
+  {q:"If n=10 vs n=100, which has more spread?", a:"n=10 (smaller samples have more variability).", options:["n=10","n=100","Same"]},
+  {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// ---------- OBSTACLES ----------
-const obstacles=[];
-for(let i=500;i<trackLength;i+=600){
-  for(let l=0;l<laneCount;l++){
-    if(Math.random()<0.3){
-      obstacles.push({
-        x:i+Math.random()*200,
-        lane:l,
-        width:50,
-        height:50,
-        yOffset:(Math.random()-0.5)*80
-      });
-    }
+// Lucky blocks - only player lane
+let blocks = [];
+for(let i=0;i<questions.length*2;i++){ 
+  const spacing = 500 + i*1200 + Math.random()*300; 
+  blocks.push({x:spacing, lane:player.lane, width:50, height:50, hit:false, questionIndex:i % questions.length});
+}
+
+// Obstacles
+let obstacles = [];
+for(let l=0;l<laneCount;l++){
+  for(let i=0;i<25;i++){
+    const obsX = 400 + i*600 + Math.random()*200;
+    const obsY = (Math.random()* (laneHeight-50)) - (laneHeight/2-25);
+    obstacles.push({x:obsX, lane:l, width:50, height:50, yOffset:obsY});
   }
 }
 
-// ---------- LUCKY BLOCKS ----------
-const blocks=[];
-for(let i=800;i<trackLength;i+=1200){
-  blocks.push({x:i,lane:player.lane,width:40,height:40});
+// Controls
+const keys = {};
+window.addEventListener('keydown', e=>keys[e.key]=true);
+window.addEventListener('keyup', e=>keys[e.key]=false);
+
+// Timer
+function updateTimer(){
+  if(gameStarted && !gamePaused){
+    elapsedTime = ((Date.now()-startTime)/1000).toFixed(2);
+    document.getElementById('timerBoard').innerText = `Time: ${elapsedTime}s`;
+  }
 }
 
-// ---------- CONTROLS ----------
-const keys={};
-onkeydown=e=>keys[e.key]=true;
-onkeyup=e=>keys[e.key]=false;
-
-// ---------- QUESTION ----------
-function askQuestion(callback){
-  gamePaused=true;
-  const q = questions[Math.floor(Math.random()*questions.length)];
-
-  document.getElementById('questionText').innerText=q.q;
-  const ansDiv=document.getElementById('answers');
-  ansDiv.innerHTML="";
-
-  q.options.forEach(opt=>{
-    const btn=document.createElement('button');
-    btn.innerText=opt;
-
-    btn.onclick=()=>{
-      document.getElementById('questionPanel').style.display='none';
-      gamePaused=false;
-
-      if(opt===q.a){
-        if(Math.random()<0.5){
-          player.speed=baseSpeed*1.5;
-          alert("🔥 Speed Boost!");
-        } else {
-          aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.6);
-          alert("🐢 AI Slowed!");
-        }
-      } else {
-        aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
-        alert("💀 AI BOOSTED!");
-      }
-
-      setTimeout(()=>{
-        player.speed=baseSpeed;
-        aiDrivers.forEach(ai=>ai.speed=baseSpeed);
-      },3000);
-
-      callback();
-    };
-
-    ansDiv.appendChild(btn);
-  });
-
-  document.getElementById('questionPanel').style.display='block';
+// Collision detection
+function isColliding(a,b){ 
+  const aY = a.lane*laneHeight + laneHeight/2 + (a.yOffset||0) - a.height/2;
+  const bY = b.lane*laneHeight + laneHeight/2 + (b.yOffset||0) - b.height/2;
+  return a.x < b.x + b.width && a.x + a.width > b.x && aY < bY + b.height && aY + a.height > bY;
 }
 
-// ---------- SMART AI ----------
-function updateAI(){
-  aiDrivers.forEach(ai=>{
-    const maxOffset = laneHeight/2 - ai.height/2;
-    const lookAhead = 200;
+// Question UI
+const questionPanel = document.getElementById('questionPanel');
+const questionText = document.getElementById('questionText');
+const answerButtons = document.getElementById('answerButtons');
 
-    const upcoming = obstacles.filter(o =>
-      o.lane===ai.lane && o.x>ai.x && o.x<ai.x+lookAhead
-    );
-
-    let blocked=false;
-
-    upcoming.forEach(obs=>{
-      if(Math.abs(ai.yOffset - (obs.yOffset||0)) < ai.height){
-        blocked=true;
-      }
-    });
-
-    if(blocked){
-      if(!ai.avoiding){
-        ai.avoiding=true;
-        ai.dir = Math.random()<0.5?-1:1;
-      }
-      ai.yOffset += ai.dir*3;
+function applyPowerup(correct){
+  if(correct){
+    if(Math.random()<0.5){
+      player.speed *= 1.5;
+      alert("Correct! Power-up: Your speed increased!");
+      setTimeout(()=>player.speed=baseSpeed,3000);
     } else {
-      ai.avoiding=false;
-      if(ai.yOffset>1) ai.yOffset-=2;
-      else if(ai.yOffset<-1) ai.yOffset+=2;
-      ai.x+=ai.speed;
+      aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5);
+      alert("Correct! Power-up: AI slowed down!");
+      setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
     }
-
-    if(ai.yOffset>maxOffset) ai.yOffset=maxOffset;
-    if(ai.yOffset<-maxOffset) ai.yOffset=-maxOffset;
-  });
-}
-
-// ---------- COLLISION ----------
-function blocked(x,lane,yOffset){
-  return obstacles.some(o=>{
-    return o.lane===lane &&
-    Math.abs(o.x-x)<40 &&
-    Math.abs((o.yOffset||0)-yOffset)<40;
-  });
-}
-
-// ---------- GAME LOOP ----------
-function loop(){
-  if(!gameStarted) return;
-
-  if(!gamePaused){
-    const time = ((Date.now()-startTime)/1000).toFixed(1);
-    document.getElementById('timerBoard').innerText="Time: "+time;
-
-    if(keys.ArrowUp) player.yOffset-=3;
-    if(keys.ArrowDown) player.yOffset+=3;
-
-    const maxOffset = laneHeight/2 - player.height/2;
-    if(player.yOffset>maxOffset) player.yOffset=maxOffset;
-    if(player.yOffset<-maxOffset) player.yOffset=-maxOffset;
-
-    if(!blocked(player.x+player.speed, player.lane, player.yOffset)){
-      player.x+=player.speed;
-    }
-
-    cameraX = player.x - 200;
-    if(cameraX<0) cameraX=0;
-
-    updateAI();
-
-    blocks.forEach((b,i)=>{
-      if(Math.abs(b.x-player.x)<40){
-        blocks.splice(i,1);
-        askQuestion(()=>{});
-      }
-    });
+  } else {
+    aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
+    alert("Wrong! AI speed boosted!");
+    setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
   }
+}
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+function askQuestion(block){
+  gamePaused = true;
+  const q = questions[block.questionIndex];
+  questionText.innerText = q.q;
+  answerButtons.innerHTML = '';
+  q.options.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.innerText = opt;
+    btn.onclick = ()=>{
+      questionPanel.style.display='none';
+      block.hit=true;
+      applyPowerup(opt===q.a);
+      gamePaused=false;
+    }
+    answerButtons.appendChild(btn);
+  });
+  questionPanel.style.display='block';
+}
 
-  ctx.strokeStyle="white";
-  for(let i=1;i<laneCount;i++){
+// Move player inside lane with obstacle collision
+function movePlayerLane(){
+  const maxOffset = laneHeight/2 - player.height/2;
+  if(keys['ArrowUp']) { 
+    let nextY = player.yOffset - player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
+      player.yOffset = Math.max(-maxOffset, nextY); 
+    }
+  }
+  if(keys['ArrowDown']) { 
+    let nextY = player.yOffset + player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
+      player.yOffset = Math.min(maxOffset, nextY); 
+    }
+  }
+}
+
+// Draw lane lines
+function drawLaneLines(){
+  ctx.strokeStyle='white';
+  ctx.lineWidth=2;
+  for(let l=1;l<laneCount;l++){
     ctx.beginPath();
-    ctx.moveTo(0,i*laneHeight);
-    ctx.lineTo(canvas.width,i*laneHeight);
+    ctx.moveTo(0, l*laneHeight);
+    ctx.lineTo(canvas.width, l*laneHeight);
     ctx.stroke();
   }
+}
 
-  ctx.fillStyle="red";
-  obstacles.forEach(o=>{
-    ctx.fillRect(o.x-cameraX,
-      o.lane*laneHeight+laneHeight/2+o.yOffset,
-      o.width,o.height);
+// High Score
+function saveHighScore(name,time){
+  let scores = JSON.parse(localStorage.getItem('highScores')||'[]');
+  scores.push({name:name,time:parseFloat(time)});
+  scores.sort((a,b)=>a.time-b.time);
+  localStorage.setItem('highScores', JSON.stringify(scores));
+  displayHighScores();
+}
+
+function displayHighScores(){
+  const scoreList = document.getElementById('scoreList');
+  scoreList.innerHTML='';
+  const scores = JSON.parse(localStorage.getItem('highScores')||'[]');
+  scores.forEach(s=>{
+    const li = document.createElement('li');
+    li.innerText = `${s.name}: ${s.time}s`;
+    scoreList.appendChild(li);
   });
+}
 
-  ctx.fillStyle="yellow";
-  blocks.forEach(b=>{
-    ctx.fillRect(b.x-cameraX,
-      b.lane*laneHeight+laneHeight/2,
-      b.width,b.height);
-  });
+// AI movement with obstacle avoidance within lane
+function moveAI(ai){
+  const maxOffset = laneHeight/2 - ai.height/2;
+  let nextX = ai.x + ai.speed;
 
-  ctx.fillStyle="red";
-  ctx.fillRect(player.x-cameraX,
-    player.lane*laneHeight+laneHeight/2+player.yOffset,
-    player.width,player.height);
+  // If obstacle ahead in lane, move up/down within lane
+  const blocked = obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:nextX}, obs));
+  if(!blocked){
+    ai.x = nextX;
+  } else {
+    // Try moving vertically within lane
+    if(ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset - ai.speed}, obs))){
+      ai.yOffset -= ai.speed;
+    } else if(ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset + ai.speed}, obs))){
+      ai.yOffset += ai.speed;
+    }
+    // else stay in place
+  }
+}
 
-  ctx.fillStyle="blue";
-  aiDrivers.forEach(ai=>{
-    ctx.fillRect(ai.x-cameraX,
-      ai.lane*laneHeight+laneHeight/2+ai.yOffset,
-      ai.width,ai.height);
-  });
+// Main loop
+function loop(){
+  if(!gameStarted) return;
+  updateTimer();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle="black";
-  ctx.fillRect(trackLength-cameraX,0,20,canvas.height);
+  if(!gamePaused){
+    movePlayerLane();
+    cameraX = player.x - 200;
 
-  if(player.x>=trackLength){
-    alert("Finished!");
-    location.reload();
+    for(let i=0;i<trackLength;i+=100){
+      ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
+      ctx.fillRect(i - cameraX, 0, 100, canvas.height);
+    }
+
+    drawLaneLines();
+
+    // Draw obstacles
+    obstacles.forEach(obs=>{
+      ctx.fillStyle='brown';
+      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+    });
+
+    // Draw lucky blocks
+    blocks.forEach(block=>{
+      if(!block.hit){
+        ctx.fillStyle='gold';
+        ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
+        if(isColliding(player,block)) askQuestion(block);
+      }
+    });
+
+    // Move & draw AI
+    aiDrivers.forEach(ai=>{
+      moveAI(ai);
+      ctx.fillStyle=ai.color;
+      ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
+    });
+
+    // Move player forward
+    let nextX = player.x + player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))){
+      player.x = nextX;
+    }
+
+    // Draw player
+    if(player.avatarImg){
+      ctx.drawImage(player.avatarImg, player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
+    } else {
+      ctx.fillStyle=player.color;
+      ctx.fillRect(player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
+    }
+
+    // Finish
+    if(player.x + player.width >= trackLength - 100) finalScreen();
   }
 
   requestAnimationFrame(loop);
 }
 
-// ---------- START ----------
-document.getElementById('startBtn').onclick=()=>{
-  gameStarted=true;
-  startTime=Date.now();
-  document.getElementById('startScreen').style.display='none';
-  document.getElementById('music').play();
-  loop();
-};
-</script>
+// Final screen
+function finalScreen(){
+  gamePaused = true;
+  let name = prompt(`You finished in ${elapsedTime}s! Enter your name for high scores:`);
+  if(name) saveHighScore(name, elapsedTime);
+  location.reload();
+}
 
+// Start game
+document.getElementById('startButton').onclick = ()=>{
+  const file = document.getElementById('avatarInput').files[0];
+  if(file){
+    const img = new Image();
+    img.onload = ()=>{ player.avatarImg = img; gameStarted = true; startTime=Date.now(); document.getElementById('bgMusic').play(); loop();}
+    img.src = URL.createObjectURL(file);
+  } else {
+    gameStarted = true;
+    startTime = Date.now();
+    document.getElementById('bgMusic').play();
+    loop();
+  }
+  document.getElementById('startScreen').style.display='none';
+  displayHighScores();
+}
+
+displayHighScores();
+</script>
 </body>
 </html>
