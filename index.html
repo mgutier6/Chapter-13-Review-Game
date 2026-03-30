@@ -82,19 +82,17 @@ const assetSources = {
   background: 'track_background.png',
   player: 'mario.png',
   ai: ['luigi.png','peach.png','yoshi.png'],
-  luckyBlock: 'lucky_block.png',
-  obstacle: 'yoshi.png' // we can use yoshi as placeholder for obstacles, or replace with custom
+  luckyBlock: 'lucky_block.png'
 };
 
 function preloadImages(callback) {
-  let total = 1 + 1 + assetSources.ai.length + 2;
+  let total = 1 + 1 + assetSources.ai.length + 1;
   let loaded = 0;
   function checkDone() { loaded++; if(loaded>=total) callback(); }
 
   loadedAssets.background = new Image(); loadedAssets.background.src = assetSources.background; loadedAssets.background.onload = checkDone;
   loadedAssets.player = new Image(); loadedAssets.player.src = assetSources.player; loadedAssets.player.onload = checkDone;
   loadedAssets.luckyBlock = new Image(); loadedAssets.luckyBlock.src = assetSources.luckyBlock; loadedAssets.luckyBlock.onload = checkDone;
-  loadedAssets.obstacle = new Image(); loadedAssets.obstacle.src = assetSources.obstacle; loadedAssets.obstacle.onload = checkDone;
   
   loadedAssets.ai = [];
   assetSources.ai.forEach((src,i)=>{
@@ -138,7 +136,7 @@ for(let i=0;i<questions.length*2;i++){
   blocks.push({x:spacing, lane:player.lane, width:35, height:35, hit:false, questionIndex:i % questions.length});
 }
 
-// Obstacles
+// Obstacles - now simple red squares
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
   for(let i=0;i<15;i++){
@@ -215,7 +213,7 @@ function movePlayerLane(){
   }
 }
 
-// Improved AI
+// AI movement
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
   ai.x += ai.speed;
@@ -249,26 +247,7 @@ function drawFinishLine(){
   ctx.fillText('FINISH', trackLength - cameraX - 50, 50);
 }
 
-// High scores
-function saveHighScore(name,time){
-  let scores = JSON.parse(localStorage.getItem('highScores')||'[]');
-  scores.push({name:name,time:parseFloat(time)});
-  scores.sort((a,b)=>a.time-b.time);
-  localStorage.setItem('highScores', JSON.stringify(scores));
-  displayHighScores();
-}
-function displayHighScores(){
-  const scoreList = document.getElementById('scoreList');
-  scoreList.innerHTML='';
-  const scores = JSON.parse(localStorage.getItem('highScores')||'[]');
-  scores.forEach(s=>{
-    const li = document.createElement('li');
-    li.innerText = `${s.name}: ${s.time}s`;
-    scoreList.appendChild(li);
-  });
-}
-
-// Main game loop
+// Main loop
 function loop(){
   if(!gameStarted) return;
   updateTimer();
@@ -286,7 +265,8 @@ function loop(){
     drawLaneLines();
 
     obstacles.forEach(obs=>{
-      ctx.drawImage(loadedAssets.obstacle, obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+      ctx.fillStyle='red';
+      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
     });
 
     blocks.forEach(block=>{
@@ -337,11 +317,8 @@ function startGame(){
   startTime = Date.now();
   document.getElementById('bgMusic').play();
   document.getElementById('startScreen').style.display='none';
-  displayHighScores();
   loop();
 }
-
-displayHighScores();
 </script>
 </body>
 </html>
