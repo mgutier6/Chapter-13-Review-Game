@@ -208,28 +208,59 @@ function displayHighScores(){
   });
 }
 
-// AI movement staying in lane
+// AI movement staying in lane with foresight
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
-  let nextX = ai.x + ai.speed;
+  const lookahead = 300; // pixels ahead to check
+  const speed = ai.speed;
 
-  // Check for obstacles directly ahead in their own lane
-  let blocked = obstacles.some(obs => obs.lane === ai.lane && isColliding({...ai,x:nextX}, obs));
+  // Lookahead obstacles
+  const upcoming = obstacles.filter(obs =>
+    obs.lane === ai.lane &&
+    obs.x > ai.x &&
+    obs.x <= ai.x + lookahead
+  );
 
-  if(!blocked){
-    ai.x = nextX;
-  } else {
-    // Dodge vertically within lane
-    if(ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset - ai.speed}, obs))){
-      ai.yOffset -= ai.speed;
-    } else if(ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset + ai.speed}, obs))){
-      ai.yOffset += ai.speed;
-    } else {
-      // If completely blocked vertically, move forward slowly
-      ai.x += ai.speed*0.5;
+  // Determine safe vertical movement
+  let targetYOffset = ai.yOffset;
+
+  // Scan top and bottom options to see which path is clearer
+  const step = speed; 
+  let canMoveUp = true;
+  let canMoveDown = true;
+
+  for(let obs of upcoming){
+    // Predict collision if staying in place
+    if(isColliding({...ai, x:ai.x + speed, yOffset:ai.yOffset}, obs)){
+      canMoveUp = canMoveUp && !isColliding({...ai, x:ai.x + speed, yOffset:ai.yOffset - step}, obs);
+      canMoveDown = canMoveDown && !isColliding({...ai, x:ai.x + speed, yOffset:ai.yOffset + step}, obs);
     }
   }
+
+  if(canMoveUp && !canMoveDown){
+    targetYOffset = Math.max(-maxOffset, ai.yOffset - step);
+  } else if(!canMoveUp && canMoveDown){
+    targetYOffset = Math.min(maxOffset, ai.yOffset + step);
+  } else if(canMoveUp && canMoveDown){
+    // choose minimal movement to stay centered
+    targetYOffset = (ai.yOffset>0) ? Math.max(-maxOffset, ai.yOffset - step) : Math.min(maxOffset, ai.yOffset + step);
+  } else {
+    // blocked completely, move slower
+    ai.x += speed*0.5;
+    return;
+  }
+
+  // Apply vertical movement
+  ai.yOffset = targetYOffset;
+
+  // Move forward if not blocked
+  if(!obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai, x:ai.x+speed, yOffset:ai.yOffset}, obs))){
+    ai.x += speed;
+  } else {
+    ai.x += speed*0.5; // slightly move forward even if tight
+  }
 }
+
 
 // Main loop
 function loop(){
