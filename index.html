@@ -9,7 +9,7 @@
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #startScreen {
   position:absolute; top:0; left:0; width:100%; height:100%;
-  background:#87cefa; /* light blue */
+  background:#87cefa;
   display:flex; flex-direction:column; justify-content:center; align-items:center;
   z-index:30; color:white;
 }
@@ -27,10 +27,11 @@ body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
 #questionPanel { 
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); 
-  width:300px; height:300px; background:red; /* red square */
+  width:320px; height:auto; background:red; 
   display:none; z-index:20; text-align:center; border-radius:8px; 
   display:flex; flex-direction:column; justify-content:center; align-items:center;
   color:white; font-family: 'Press Start 2P', cursive;
+  padding:10px;
 }
 #questionText { padding:10px; font-size:14px; }
 #answerButtons button { margin:5px; padding:8px 15px; font-size:12px; background:white; color:black; border:none; border-radius:6px; cursor:pointer; }
@@ -68,9 +69,9 @@ canvas.height = window.innerHeight;
 let gamePaused = false;
 let gameStarted = false;
 let startTime, elapsedTime = 0;
-const baseSpeed = 2.5; 
+const baseSpeed = 2.2;
 
-const trackLength = 5000; 
+const trackLength = 5000;
 const laneCount = 4;
 const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
@@ -110,7 +111,7 @@ const aiDrivers = [
   {lane:3, x:250, width:50, height:50, speed:baseSpeed, yOffset:0, img:null}
 ];
 
-// Questions (format unchanged)
+// Questions (unchanged)
 const questions = [
   {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
   {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
@@ -172,18 +173,10 @@ const answerButtons = document.getElementById('answerButtons');
 
 function applyPowerup(correct, correctAnswer){
   if(correct){
-    if(Math.random()<0.5){
-      player.speed *= 1.5;
-      alert("Correct! Speed boost!");
-      setTimeout(()=>player.speed=baseSpeed,3000);
-    } else {
-      aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5);
-      alert("Correct! AI slowed down!");
-      setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
-    }
+    if(Math.random()<0.5){ player.speed *= 1.5; setTimeout(()=>player.speed=baseSpeed,3000); }
+    else { aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5); setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000); }
   } else {
     aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
-    alert("Wrong! Correct answer: " + correctAnswer);
     setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
   }
 }
@@ -212,31 +205,27 @@ function movePlayerLane(){
   const maxOffset = laneHeight/2 - player.height/2;
   if(keys['ArrowUp']) { 
     let nextY = player.yOffset - player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
-      player.yOffset = Math.max(-maxOffset, nextY); 
-    }
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){ player.yOffset = Math.max(-maxOffset, nextY); }
   }
   if(keys['ArrowDown']) { 
     let nextY = player.yOffset + player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
-      player.yOffset = Math.min(maxOffset, nextY); 
-    }
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){ player.yOffset = Math.min(maxOffset, nextY); }
   }
 }
 
-// AI movement
+// Improved AI movement
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
-  let nextX = ai.x + ai.speed;
-  let blocked = obstacles.some(obs => obs.lane === ai.lane && isColliding({...ai,x:nextX}, obs));
-  if(!blocked){ ai.x = nextX; } 
-  else {
-    if(ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset - ai.speed}, obs))){
-      ai.yOffset -= ai.speed;
-    } else if(ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset + ai.speed}, obs))){
-      ai.yOffset += ai.speed;
-    } else { ai.x += ai.speed*0.5; }
-  }
+  ai.x += ai.speed;
+
+  // Avoid obstacle by changing lane
+  obstacles.forEach(obs=>{
+    if(isColliding(ai,obs)){
+      if(ai.lane>0 && !obstacles.some(o=>o.lane===ai.lane-1 && isColliding({...ai,lane:ai.lane-1},o))){ ai.lane--; }
+      else if(ai.lane<laneCount-1 && !obstacles.some(o=>o.lane===ai.lane+1 && isColliding({...ai,lane:ai.lane+1},o))){ ai.lane++; }
+      else { ai.x -= ai.speed*0.5; }
+    }
+  });
 }
 
 // Draw lanes
@@ -343,6 +332,5 @@ function startGame(){
 
 displayHighScores();
 </script>
-
 </body>
 </html>
