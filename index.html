@@ -82,17 +82,19 @@ const assetSources = {
   background: 'track_background.png',
   player: 'mario.png',
   ai: ['luigi.png','peach.png','yoshi.png'],
-  luckyBlock: 'lucky_block.png'
+  luckyBlock: 'lucky_block.png',
+  obstacle: 'yoshi.png' // we can use yoshi as placeholder for obstacles, or replace with custom
 };
 
 function preloadImages(callback) {
-  let total = 1 + 1 + assetSources.ai.length + 1;
+  let total = 1 + 1 + assetSources.ai.length + 2;
   let loaded = 0;
   function checkDone() { loaded++; if(loaded>=total) callback(); }
 
   loadedAssets.background = new Image(); loadedAssets.background.src = assetSources.background; loadedAssets.background.onload = checkDone;
   loadedAssets.player = new Image(); loadedAssets.player.src = assetSources.player; loadedAssets.player.onload = checkDone;
   loadedAssets.luckyBlock = new Image(); loadedAssets.luckyBlock.src = assetSources.luckyBlock; loadedAssets.luckyBlock.onload = checkDone;
+  loadedAssets.obstacle = new Image(); loadedAssets.obstacle.src = assetSources.obstacle; loadedAssets.obstacle.onload = checkDone;
   
   loadedAssets.ai = [];
   assetSources.ai.forEach((src,i)=>{
@@ -111,7 +113,7 @@ const aiDrivers = [
   {lane:3, x:250, width:50, height:50, speed:baseSpeed, yOffset:0, img:null}
 ];
 
-// Questions (unchanged)
+// Questions
 const questions = [
   {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
   {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
@@ -213,12 +215,10 @@ function movePlayerLane(){
   }
 }
 
-// Improved AI movement
+// Improved AI
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
   ai.x += ai.speed;
-
-  // Avoid obstacle by changing lane
   obstacles.forEach(obs=>{
     if(isColliding(ai,obs)){
       if(ai.lane>0 && !obstacles.some(o=>o.lane===ai.lane-1 && isColliding({...ai,lane:ai.lane-1},o))){ ai.lane--; }
@@ -240,6 +240,15 @@ function drawLaneLines(){
   }
 }
 
+// Draw finish line
+function drawFinishLine(){
+  ctx.fillStyle='black';
+  ctx.fillRect(trackLength - cameraX, 0, 10, canvas.height);
+  ctx.fillStyle='white';
+  ctx.font='24px Press Start 2P';
+  ctx.fillText('FINISH', trackLength - cameraX - 50, 50);
+}
+
 // High scores
 function saveHighScore(name,time){
   let scores = JSON.parse(localStorage.getItem('highScores')||'[]');
@@ -259,7 +268,7 @@ function displayHighScores(){
   });
 }
 
-// Game loop
+// Main game loop
 function loop(){
   if(!gameStarted) return;
   updateTimer();
@@ -277,7 +286,7 @@ function loop(){
     drawLaneLines();
 
     obstacles.forEach(obs=>{
-      ctx.drawImage(loadedAssets.luckyBlock, obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+      ctx.drawImage(loadedAssets.obstacle, obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
     });
 
     blocks.forEach(block=>{
@@ -298,6 +307,8 @@ function loop(){
     }
 
     ctx.drawImage(loadedAssets.player, player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
+
+    drawFinishLine();
 
     if(player.x + player.width >= trackLength - 50) finalScreen();
   }
