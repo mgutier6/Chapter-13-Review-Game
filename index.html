@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🔥 Mario Stats Kart - Fixed Start</title>
+<title>🔥 Mario Stats Kart - Lane AI</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
@@ -53,7 +53,7 @@ const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Player
-const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed};
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed, avatarImg:null};
 
 // AI drivers
 const aiDrivers = [
@@ -62,19 +62,32 @@ const aiDrivers = [
   {lane:3, x:250, width:50, height:50, color:'purple', speed:baseSpeed, yOffset:0}
 ];
 
-// Questions (kept original, simplified here)
+// Questions
 const questions = [
-  {q:"Why do sample proportions vary?", a:"Random variability", options:["Random variability","Always same","Depends on n"]},
-  {q:"Randomization Condition?", a:"Sample randomly selected", options:["Sample randomly selected","Population small","Sample>10%"]}
+  {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
+  {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
+  {q:"What is the 10% Condition?", a:"The sample size must be less than 10% of the population.", options:["Sample <10%","Sample >50%","Sample = population"]},
+  {q:"Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
+  {q:"What shape does the sampling distribution of p^ have?", a:"Approximately normal (if conditions are met).", options:["Approximately normal","Skewed","Uniform"]},
+  {q:"What does p represent?", a:"The true population proportion.", options:["The true population proportion.","Sample proportion","Parameter"]},
+  {q:"Parameter vs Statistic?", a:"A parameter describes a population, while a statistic describes a sample.", options:["Parameter describes population, Statistic describes sample","Both same","Parameter=sample, Statistic=population"]},
+  {q:"What does p^ represent?", a:"The sample proportion.", options:["Sample proportion","Population proportion","Variance"]},
+  {q:"What does q equal in proportion problems?", a:"q = 1 - p", options:["q = 1 - p","p - 1","p^2"]},
+  {q:"True or False: Larger samples give more accurate estimates.", a:"True.", options:["True","False","Depends on population"]},
+  {q:"What is sampling variability?", a:"The natural differences between sample results.", options:["Natural differences between samples","Random error","Bias"]},
+  {q:"If p=0.5, what is the mean of the sampling distribution?", a:"0.5", options:["0.5","0.4","0.6"]},
+  {q:"If n=10 vs n=100, which has more spread?", a:"n=10 (smaller samples have more variability).", options:["n=10","n=100","Same"]},
+  {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// Blocks (player lane only)
+// Lucky blocks - only player lane
 let blocks = [];
 for(let i=0;i<questions.length*2;i++){ 
-  blocks.push({x:500 + i*1200, lane:player.lane, width:50, height:50, hit:false, questionIndex:i % questions.length});
+  const spacing = 500 + i*1200 + Math.random()*300; 
+  blocks.push({x:spacing, lane:player.lane, width:50, height:50, hit:false, questionIndex:i % questions.length});
 }
 
-// Obstacles (for all lanes)
+// Obstacles
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
   for(let i=0;i<25;i++){
@@ -109,6 +122,24 @@ const questionPanel = document.getElementById('questionPanel');
 const questionText = document.getElementById('questionText');
 const answerButtons = document.getElementById('answerButtons');
 
+function applyPowerup(correct){
+  if(correct){
+    if(Math.random()<0.5){
+      player.speed *= 1.5;
+      alert("Correct! Power-up: Your speed increased!");
+      setTimeout(()=>player.speed=baseSpeed,3000);
+    } else {
+      aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5);
+      alert("Correct! Power-up: AI slowed down!");
+      setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
+    }
+  } else {
+    aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
+    alert("Wrong! AI speed boosted!");
+    setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
+  }
+}
+
 function askQuestion(block){
   gamePaused = true;
   const q = questions[block.questionIndex];
@@ -120,6 +151,7 @@ function askQuestion(block){
     btn.onclick = ()=>{
       questionPanel.style.display='none';
       block.hit=true;
+      applyPowerup(opt===q.a);
       gamePaused=false;
     }
     answerButtons.appendChild(btn);
@@ -127,11 +159,21 @@ function askQuestion(block){
   questionPanel.style.display='block';
 }
 
-// Move player lane
+// Move player inside lane with obstacle collision
 function movePlayerLane(){
   const maxOffset = laneHeight/2 - player.height/2;
-  if(keys['ArrowUp']) player.yOffset = Math.max(-maxOffset, player.yOffset - player.speed);
-  if(keys['ArrowDown']) player.yOffset = Math.min(maxOffset, player.yOffset + player.speed);
+  if(keys['ArrowUp']) { 
+    let nextY = player.yOffset - player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
+      player.yOffset = Math.max(-maxOffset, nextY); 
+    }
+  }
+  if(keys['ArrowDown']) { 
+    let nextY = player.yOffset + player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
+      player.yOffset = Math.min(maxOffset, nextY); 
+    }
+  }
 }
 
 // Draw lane lines
@@ -146,83 +188,7 @@ function drawLaneLines(){
   }
 }
 
-// AI movement
-function moveAI(ai){
-  const maxOffset = laneHeight/2 - ai.height/2;
-  let nextX = ai.x + ai.speed;
-  const blocked = obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:nextX}, obs));
-  if(!blocked){
-    ai.x = nextX;
-  } else {
-    if(ai.yOffset - ai.speed >= -maxOffset) ai.yOffset -= ai.speed;
-    else if(ai.yOffset + ai.speed <= maxOffset) ai.yOffset += ai.speed;
-  }
-}
-
-// Main loop
-function loop(){
-  if(!gameStarted) return;
-  updateTimer();
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  if(!gamePaused){
-    movePlayerLane();
-    cameraX = player.x - 200;
-
-    // Track background
-    for(let i=0;i<trackLength;i+=100){
-      ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
-      ctx.fillRect(i - cameraX, 0, 100, canvas.height);
-    }
-
-    drawLaneLines();
-
-    // Draw obstacles
-    obstacles.forEach(obs=>{
-      ctx.fillStyle='brown';
-      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
-    });
-
-    // Draw blocks
-    blocks.forEach(block=>{
-      if(!block.hit){
-        ctx.fillStyle='gold';
-        ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
-        if(isColliding(player,block)) askQuestion(block);
-      }
-    });
-
-    // Move & draw AI
-    aiDrivers.forEach(ai=>{
-      moveAI(ai);
-      ctx.fillStyle=ai.color;
-      ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
-    });
-
-    // Move player forward
-    let nextX = player.x + player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))) player.x = nextX;
-
-    // Draw player
-    ctx.fillStyle=player.color;
-    ctx.fillRect(player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
-
-    // Finish
-    if(player.x + player.width >= trackLength - 100) finalScreen();
-  }
-
-  requestAnimationFrame(loop);
-}
-
-// Finish
-function finalScreen(){
-  gamePaused = true;
-  let name = prompt(`You finished in ${elapsedTime}s! Enter your name:`);
-  if(name) saveHighScore(name, elapsedTime);
-  location.reload();
-}
-
-// High Scores
+// High Score
 function saveHighScore(name,time){
   let scores = JSON.parse(localStorage.getItem('highScores')||'[]');
   scores.push({name:name,time:parseFloat(time)});
@@ -242,15 +208,120 @@ function displayHighScores(){
   });
 }
 
-// Start button
+// 10x smarter AI movement
+function moveAI(ai){
+  const maxOffset = laneHeight/2 - ai.height/2;
+  const lookahead = 200; // pixels to check ahead
+  let nextX = ai.x + ai.speed;
+
+  // Check if the current lane is blocked ahead
+  let blocked = obstacles.some(obs => obs.lane === ai.lane && obs.x > ai.x && obs.x < ai.x + lookahead && isColliding({...ai,x:obs.x}, obs));
+
+  if(!blocked){
+    ai.x += ai.speed;
+  } else {
+    let moved = false;
+
+    // Try lane above
+    if(ai.lane > 0){
+      const laneUp = ai.lane - 1;
+      const clearUp = !obstacles.some(obs => obs.lane === laneUp && obs.x > ai.x && obs.x < ai.x + lookahead && isColliding({...ai,lane:laneUp,x:ai.x}, obs));
+      if(clearUp){ ai.lane = laneUp; moved = true; }
+    }
+
+    // Try lane below
+    if(!moved && ai.lane < laneCount - 1){
+      const laneDown = ai.lane + 1;
+      const clearDown = !obstacles.some(obs => obs.lane === laneDown && obs.x > ai.x && obs.x < ai.x + lookahead && isColliding({...ai,lane:laneDown,x:ai.x}, obs));
+      if(clearDown){ ai.lane = laneDown; moved = true; }
+    }
+
+    // Dodge vertically within lane if needed
+    if(!moved){
+      if(ai.yOffset - ai.speed >= -maxOffset) ai.yOffset -= ai.speed;
+      else if(ai.yOffset + ai.speed <= maxOffset) ai.yOffset += ai.speed;
+    }
+
+    // Keep moving forward slightly
+    ai.x += ai.speed * 0.8;
+  }
+}
+
+// Main loop
+function loop(){
+  if(!gameStarted) return;
+  updateTimer();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(!gamePaused){
+    movePlayerLane();
+    cameraX = player.x - 200;
+
+    for(let i=0;i<trackLength;i+=100){
+      ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
+      ctx.fillRect(i - cameraX, 0, 100, canvas.height);
+    }
+
+    drawLaneLines();
+
+    // Draw obstacles
+    obstacles.forEach(obs=>{
+      ctx.fillStyle='brown';
+      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+    });
+
+    // Draw lucky blocks
+    blocks.forEach(block=>{
+      if(!block.hit){
+        ctx.fillStyle='gold';
+        ctx.fillRect(block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
+        if(isColliding(player,block)) askQuestion(block);
+      }
+    });
+
+    // Move & draw AI
+    aiDrivers.forEach(ai=>{
+      moveAI(ai);
+      ctx.fillStyle=ai.color;
+      ctx.fillRect(ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
+    });
+
+    // Move player forward
+    let nextX = player.x + player.speed;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))){
+      player.x = nextX;
+    }
+
+    // Draw player
+    ctx.fillStyle=player.color;
+    ctx.fillRect(player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
+
+    // Finish
+    if(player.x + player.width >= trackLength - 100) finalScreen();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// Final screen
+function finalScreen(){
+  gamePaused = true;
+  let name = prompt(`You finished in ${elapsedTime}s! Enter your name for high scores:`);
+  if(name) saveHighScore(name, elapsedTime);
+  location.reload();
+}
+
+// Start game
 document.getElementById('startButton').onclick = ()=>{
-  document.getElementById('startScreen').style.display='none';
   gameStarted = true;
   startTime = Date.now();
   document.getElementById('bgMusic').play();
-  loop();
+  document.getElementById('startScreen').style.display='none';
   displayHighScores();
+  loop();
 }
+
+displayHighScores();
 </script>
 </body>
 </html>
