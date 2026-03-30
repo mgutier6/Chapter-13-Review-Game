@@ -46,7 +46,7 @@ canvas.height = window.innerHeight;
 let gamePaused = false;
 let gameStarted = false;
 let startTime, elapsedTime = 0;
-const baseSpeed = 2.5; // slower for control
+const baseSpeed = 2.5;
 
 const trackLength = 20000;
 const laneCount = 4;
@@ -55,7 +55,6 @@ let cameraX = 0;
 
 // Load images
 const backgroundImg = new Image(); backgroundImg.src = "track_background.png";
-const startBgImg = new Image(); startBgImg.src = "start_background.png";
 const playerImg = new Image(); playerImg.src = "mario.png";
 const aiImgs = [new Image(), new Image(), new Image()];
 aiImgs[0].src = "luigi.png"; aiImgs[1].src = "peach.png"; aiImgs[2].src = "yoshi.png";
@@ -96,7 +95,7 @@ for(let i=0;i<questions.length*2;i++){
   blocks.push({x:spacing, lane:player.lane, width:40, height:40, hit:false, questionIndex:i % questions.length});
 }
 
-// Obstacles (invisible but block collisions)
+// Obstacles (red squares)
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
   for(let i=0;i<25;i++){
@@ -193,11 +192,10 @@ function moveAI(ai){
 
   if(!blocked) ai.x = nextX;
   else {
-    // dodge randomly within lane
     let moveUp = Math.random()>0.5;
     if(moveUp && ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset - ai.speed}, obs))) ai.yOffset -= ai.speed;
     else if(!moveUp && ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset + ai.speed}, obs))) ai.yOffset += ai.speed;
-    else ai.x += ai.speed*0.5; // small forward movement
+    else ai.x += ai.speed*0.5;
   }
 }
 
@@ -250,6 +248,12 @@ function loop(){
     }
 
     drawLaneLines();
+
+    // Draw obstacles (red squares)
+    obstacles.forEach(obs=>{
+      ctx.fillStyle='red';
+      ctx.fillRect(obs.x-cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
+    });
 
     // Draw lucky blocks
     blocks.forEach(block=>{
