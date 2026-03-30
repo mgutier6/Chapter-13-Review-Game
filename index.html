@@ -53,7 +53,7 @@ const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Player
-const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed, avatarImg:null};
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed};
 
 // AI drivers
 const aiDrivers = [
@@ -67,7 +67,6 @@ const questions = [
   {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
   {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
   {q:"What is the 10% Condition?", a:"The sample size must be less than 10% of the population.", options:["Sample <10%","Sample >50%","Sample = population"]},
-  {q:"Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
   {q:"What shape does the sampling distribution of p^ have?", a:"Approximately normal (if conditions are met).", options:["Approximately normal","Skewed","Uniform"]},
   {q:"What does p represent?", a:"The true population proportion.", options:["The true population proportion.","Sample proportion","Parameter"]},
   {q:"Parameter vs Statistic?", a:"A parameter describes a population, while a statistic describes a sample.", options:["Parameter describes population, Statistic describes sample","Both same","Parameter=sample, Statistic=population"]},
@@ -80,20 +79,17 @@ const questions = [
   {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// Lucky blocks
+// Blocks
 let blocks = [];
 for(let i=0;i<questions.length*2;i++){ 
-  const spacing = 500 + i*1200 + Math.random()*300; 
-  blocks.push({x:spacing, lane:player.lane, width:50, height:50, hit:false, questionIndex:i % questions.length});
+  blocks.push({x:500 + i*1200, lane:player.lane, width:50, height:50, hit:false, questionIndex:i % questions.length});
 }
 
 // Obstacles
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
   for(let i=0;i<25;i++){
-    const obsX = 400 + i*600 + Math.random()*200;
-    const obsY = (Math.random()* (laneHeight-50)) - (laneHeight/2-25);
-    obstacles.push({x:obsX, lane:l, width:50, height:50, yOffset:obsY});
+    obstacles.push({x:400 + i*600, lane:l, width:50, height:50, yOffset:0});
   }
 }
 
@@ -110,36 +106,12 @@ function updateTimer(){
   }
 }
 
-// Collision detection
+// Collision
 function isColliding(a,b){ 
-  const aY = a.lane*laneHeight + laneHeight/2 + (a.yOffset||0) - a.height/2;
-  const bY = b.lane*laneHeight + laneHeight/2 + (b.yOffset||0) - b.height/2;
-  return a.x < b.x + b.width && a.x + a.width > b.x && aY < bY + b.height && aY + a.height > bY;
+  return a.x < b.x + b.width && a.x + a.width > b.x;
 }
 
-// Question UI
-const questionPanel = document.getElementById('questionPanel');
-const questionText = document.getElementById('questionText');
-const answerButtons = document.getElementById('answerButtons');
-
-function applyPowerup(correct){
-  if(correct){
-    if(Math.random()<0.5){
-      player.speed *= 1.5;
-      alert("Correct! Power-up: Your speed increased!");
-      setTimeout(()=>player.speed=baseSpeed,3000);
-    } else {
-      aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5);
-      alert("Correct! Power-up: AI slowed down!");
-      setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
-    }
-  } else {
-    aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
-    alert("Wrong! AI speed boosted!");
-    setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
-  }
-}
-
+// Question
 function askQuestion(block){
   gamePaused = true;
   const q = questions[block.questionIndex];
@@ -151,7 +123,6 @@ function askQuestion(block){
     btn.onclick = ()=>{
       questionPanel.style.display='none';
       block.hit=true;
-      applyPowerup(opt===q.a);
       gamePaused=false;
     }
     answerButtons.appendChild(btn);
@@ -159,19 +130,63 @@ function askQuestion(block){
   questionPanel.style.display='block';
 }
 
-// Movement, AI, loop, finish all unchanged...
+// Loop
+function loop(){
+  if(!gameStarted) return;
+  updateTimer();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// Start game (SIMPLIFIED)
+  if(!gamePaused){
+    player.x += player.speed;
+    cameraX = player.x - 200;
+
+    // Track
+    for(let i=0;i<trackLength;i+=100){
+      ctx.fillStyle = (i%200===0) ? '#228B22' : '#32CD32';
+      ctx.fillRect(i - cameraX, 0, 100, canvas.height);
+    }
+
+    // Blocks
+    blocks.forEach(block=>{
+      if(!block.hit){
+        ctx.fillStyle='gold';
+        ctx.fillRect(block.x - cameraX, 200, 50, 50);
+        if(isColliding(player,block)) askQuestion(block);
+      }
+    });
+
+    // Player
+    ctx.fillStyle='red';
+    ctx.fillRect(player.x-cameraX, 200, 50, 50);
+
+    if(player.x >= trackLength) finalScreen();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// Finish
+function finalScreen(){
+  alert(`Finished in ${elapsedTime}s`);
+  location.reload();
+}
+
+// ✅ FIXED START BUTTON
 document.getElementById('startButton').onclick = ()=>{
+  document.getElementById('startScreen').style.display='none';
+  canvas.style.display = "block";
+
   gameStarted = true;
   startTime = Date.now();
+
   document.getElementById('bgMusic').play();
   loop();
-  document.getElementById('startScreen').style.display='none';
+
   displayHighScores();
 }
 
-displayHighScores();
+function displayHighScores(){}
+
 </script>
 </body>
 </html>
