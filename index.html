@@ -72,21 +72,144 @@ const aiDrivers = [
 
 // Questions
 const questions = [
-  {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
-  {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
-  {q:"What is the 10% Condition?", a:"The sample size must be less than 10% of the population.", options:["Sample <10%","Sample >50%","Sample = population"]},
-  {q:"Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
-  {q:"What shape does the sampling distribution of p^ have?", a:"Approximately normal (if conditions are met).", options:["Approximately normal","Skewed","Uniform"]},
-  {q:"What does p represent?", a:"The true population proportion.", options:["The true population proportion.","Sample proportion","Parameter"]},
-  {q:"Parameter vs Statistic?", a:"A parameter describes a population, while a statistic describes a sample.", options:["Parameter describes population, Statistic describes sample","Both same","Parameter=sample, Statistic=population"]},
-  {q:"What does p^ represent?", a:"The sample proportion.", options:["Sample proportion","Population proportion","Variance"]},
-  {q:"What does q equal in proportion problems?", a:"q = 1 - p", options:["q = 1 - p","p - 1","p^2"]},
-  {q:"True or False: Larger samples give more accurate estimates.", a:"True.", options:["True","False","Depends on population"]},
-  {q:"What is sampling variability?", a:"The natural differences between sample results.", options:["Natural differences between samples","Random error","Bias"]},
-  {q:"If p=0.5, what is the mean of the sampling distribution?", a:"0.5", options:["0.5","0.4","0.6"]},
-  {q:"If n=10 vs n=100, which has more spread?", a:"n=10 (smaller samples have more variability).", options:["n=10","n=100","Same"]},
-  {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
+  {
+    q: "Why do sample proportions vary from sample to sample?",
+    a: "Due to random sampling variability",
+    options: [
+      "Because the population changes over time",
+      "Due to measurement error",
+      "Due to random sampling variability",
+      "Because the sample size is always too small"
+    ]
+  },
+  {
+    q: "What is the Randomization Condition?",
+    a: "The sample must be randomly selected",
+    options: [
+      "The sample must be randomly selected",
+      "The population must be normally distributed",
+      "The sample size must be at least 30",
+      "The data must be categorical"
+    ]
+  },
+  {
+    q: "What is the 10% Condition?",
+    a: "The sample size must be less than 10% of the population",
+    options: [
+      "The sample size must be at least 10% of the population",
+      "The sample size must be less than 10% of the population",
+      "Only 10% of the sample should vary",
+      "10% of observations must be successes"
+    ]
+  },
+  {
+    q: "What shape does the sampling distribution of p^ have?",
+    a: "Approximately normal (if conditions are met)",
+    options: [
+      "Skewed left",
+      "Skewed right",
+      "Approximately normal (if conditions are met)",
+      "Uniform"
+    ]
+  },
+  {
+    q: "What does p represent?",
+    a: "True population proportion",
+    options: [
+      "Sample proportion",
+      "True population proportion",
+      "Number of successes",
+      "Sample mean"
+    ]
+  },
+  {
+    q: "What is the difference between a parameter and a statistic?",
+    a: "A parameter describes a population, a statistic describes a sample",
+    options: [
+      "A parameter describes a sample, a statistic describes a population",
+      "A parameter describes a population, a statistic describes a sample",
+      "Both describe populations",
+      "Both describe samples"
+    ]
+  },
+  {
+    q: "What does p^ represent?",
+    a: "Sample proportion",
+    options: [
+      "True population proportion",
+      "Sample proportion",
+      "Number of successes in the population",
+      "Number of successes in the sample"
+    ]
+  },
+  {
+    q: "What does q equal in proportion problems?",
+    a: "q = 1 - p",
+    options: [
+      "q = p + 1",
+      "q = 1 - p",
+      "q = p / 2",
+      "q = p^2"
+    ]
+  },
+  {
+    q: "True or False: Larger samples give more accurate estimates.",
+    a: "True",
+    options: [
+      "True",
+      "False"
+    ]
+  },
+  {
+    q: "What is sampling variability?",
+    a: "The natural differences between sample results",
+    options: [
+      "Errors in data entry",
+      "The natural differences between sample results",
+      "A type of bias",
+      "Differences between populations"
+    ]
+  },
+  {
+    q: "If p = 0.5, what is the mean of the sampling distribution?",
+    a: "0.5",
+    options: [
+      "0",
+      "0.25",
+      "0.5",
+      "1"
+    ]
+  },
+  {
+    q: "If n = 10 vs n = 100, which has more spread?",
+    a: "n = 10",
+    options: [
+      "n = 100",
+      "n = 10",
+      "Both are the same",
+      "Cannot determine"
+    ]
+  },
+  {
+    q: "Which condition is most important for using a normal model for proportions?",
+    a: "Success/Failure Condition",
+    options: [
+      "Randomization Condition",
+      "10% Condition",
+      "Success/Failure Condition",
+      "Sample size ≥ 5"
+    ]
+  },
+  {
+    q: "True or False: Larger samples give more accurate estimates.",
+    a: "True",
+    options: [
+      "True",
+      "False"
+    ]
+  }
 ];
+
 
 // Lucky blocks
 let blocks = [];
