@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🔥 Mario Stats Kart - Lane AI</title>
+<title>🔥 Mario Stats Kart - Smart AI</title>
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
@@ -53,7 +53,7 @@ const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Player
-const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed, avatarImg:null};
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, color:'red', speed:baseSpeed};
 
 // AI drivers
 const aiDrivers = [
@@ -208,59 +208,44 @@ function displayHighScores(){
   });
 }
 
-// AI movement staying in lane with foresight
+// ------------------- SMART AI -------------------
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
-  const lookahead = 300; // pixels ahead to check
-  const speed = ai.speed;
+  const lookahead = 400; // pixels ahead to check
+  const step = ai.speed;
 
-  // Lookahead obstacles
-  const upcoming = obstacles.filter(obs =>
-    obs.lane === ai.lane &&
-    obs.x > ai.x &&
-    obs.x <= ai.x + lookahead
-  );
+  const upcoming = obstacles.filter(obs => obs.lane === ai.lane && obs.x > ai.x && obs.x <= ai.x + lookahead);
 
-  // Determine safe vertical movement
-  let targetYOffset = ai.yOffset;
-
-  // Scan top and bottom options to see which path is clearer
-  const step = speed; 
-  let canMoveUp = true;
-  let canMoveDown = true;
-
-  for(let obs of upcoming){
-    // Predict collision if staying in place
-    if(isColliding({...ai, x:ai.x + speed, yOffset:ai.yOffset}, obs)){
-      canMoveUp = canMoveUp && !isColliding({...ai, x:ai.x + speed, yOffset:ai.yOffset - step}, obs);
-      canMoveDown = canMoveDown && !isColliding({...ai, x:ai.x + speed, yOffset:ai.yOffset + step}, obs);
+  function spaceAhead(offsetChange){
+    let testYOffset = ai.yOffset + offsetChange;
+    let clearDist = lookahead;
+    for(let obs of upcoming){
+      let predicted = {...ai, x:ai.x + lookahead, yOffset: testYOffset};
+      if(isColliding(predicted, obs)){
+        clearDist = Math.min(clearDist, obs.x - ai.x);
+      }
     }
+    return clearDist;
   }
 
-  if(canMoveUp && !canMoveDown){
-    targetYOffset = Math.max(-maxOffset, ai.yOffset - step);
-  } else if(!canMoveUp && canMoveDown){
-    targetYOffset = Math.min(maxOffset, ai.yOffset + step);
-  } else if(canMoveUp && canMoveDown){
-    // choose minimal movement to stay centered
-    targetYOffset = (ai.yOffset>0) ? Math.max(-maxOffset, ai.yOffset - step) : Math.min(maxOffset, ai.yOffset + step);
-  } else {
-    // blocked completely, move slower
-    ai.x += speed*0.5;
-    return;
+  const spaceUp = (ai.yOffset - step >= -maxOffset) ? spaceAhead(-step) : -1;
+  const spaceDown = (ai.yOffset + step <= maxOffset) ? spaceAhead(step) : -1;
+
+  // Choose direction with more space
+  if(spaceUp >= spaceDown && spaceUp > 0){
+    ai.yOffset = Math.max(-maxOffset, ai.yOffset - step);
+  } else if(spaceDown > spaceUp){
+    ai.yOffset = Math.min(maxOffset, ai.yOffset + step);
   }
 
-  // Apply vertical movement
-  ai.yOffset = targetYOffset;
-
-  // Move forward if not blocked
-  if(!obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai, x:ai.x+speed, yOffset:ai.yOffset}, obs))){
-    ai.x += speed;
+  // Move forward
+  if(!obstacles.some(obs=>obs.lane === ai.lane && isColliding({...ai, x: ai.x + step, yOffset: ai.yOffset}, obs))){
+    ai.x += step;
   } else {
-    ai.x += speed*0.5; // slightly move forward even if tight
+    ai.x += step * 0.5;
   }
 }
-
+// ------------------- END SMART AI -------------------
 
 // Main loop
 function loop(){
@@ -279,13 +264,11 @@ function loop(){
 
     drawLaneLines();
 
-    // Draw obstacles
     obstacles.forEach(obs=>{
       ctx.fillStyle='brown';
       ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
     });
 
-    // Draw lucky blocks
     blocks.forEach(block=>{
       if(!block.hit){
         ctx.fillStyle='gold';
@@ -294,7 +277,7 @@ function loop(){
       }
     });
 
-    // Move & draw AI
+    // AI drivers
     aiDrivers.forEach(ai=>{
       moveAI(ai);
       ctx.fillStyle=ai.color;
