@@ -46,15 +46,6 @@ let gameStarted = false;
 let startTime, elapsedTime=0;
 const baseSpeed = 3.5;
 
-// Load the background image
-const backgroundImg = new Image();
-backgroundImg.src = "track_background.png";
-
-// Draw background scrolling with camera
-for (let i = 0; i < trackLength; i += backgroundImg.width) {
-    ctx.drawImage(backgroundImg, i - cameraX, 0, backgroundImg.width, canvas.height);
-}
-
 // Track & lanes
 const trackLength = 20000;
 const laneCount = 4;
@@ -217,42 +208,26 @@ function displayHighScores(){
   });
 }
 
-// 10x smarter AI movement
+// AI movement staying in lane
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
-  const lookahead = 200; // pixels to check ahead
   let nextX = ai.x + ai.speed;
 
-  // Check if the current lane is blocked ahead
-  let blocked = obstacles.some(obs => obs.lane === ai.lane && obs.x > ai.x && obs.x < ai.x + lookahead && isColliding({...ai,x:obs.x}, obs));
+  // Check for obstacles directly ahead in their own lane
+  let blocked = obstacles.some(obs => obs.lane === ai.lane && isColliding({...ai,x:nextX}, obs));
 
   if(!blocked){
-    ai.x += ai.speed;
+    ai.x = nextX;
   } else {
-    let moved = false;
-
-    // Try lane above
-    if(ai.lane > 0){
-      const laneUp = ai.lane - 1;
-      const clearUp = !obstacles.some(obs => obs.lane === laneUp && obs.x > ai.x && obs.x < ai.x + lookahead && isColliding({...ai,lane:laneUp,x:ai.x}, obs));
-      if(clearUp){ ai.lane = laneUp; moved = true; }
+    // Dodge vertically within lane
+    if(ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset - ai.speed}, obs))){
+      ai.yOffset -= ai.speed;
+    } else if(ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset + ai.speed}, obs))){
+      ai.yOffset += ai.speed;
+    } else {
+      // If completely blocked vertically, move forward slowly
+      ai.x += ai.speed*0.5;
     }
-
-    // Try lane below
-    if(!moved && ai.lane < laneCount - 1){
-      const laneDown = ai.lane + 1;
-      const clearDown = !obstacles.some(obs => obs.lane === laneDown && obs.x > ai.x && obs.x < ai.x + lookahead && isColliding({...ai,lane:laneDown,x:ai.x}, obs));
-      if(clearDown){ ai.lane = laneDown; moved = true; }
-    }
-
-    // Dodge vertically within lane if needed
-    if(!moved){
-      if(ai.yOffset - ai.speed >= -maxOffset) ai.yOffset -= ai.speed;
-      else if(ai.yOffset + ai.speed <= maxOffset) ai.yOffset += ai.speed;
-    }
-
-    // Keep moving forward slightly
-    ai.x += ai.speed * 0.8;
   }
 }
 
