@@ -92,16 +92,16 @@ const questions = [
 let blocks = [];
 for(let i=0;i<questions.length*2;i++){
   const spacing = 500 + i*1200 + Math.random()*300;
-  blocks.push({x:spacing, lane:player.lane, width:40, height:40, hit:false, questionIndex:i % questions.length});
+  blocks.push({x:spacing, lane:player.lane, width:35, height:35, hit:false, questionIndex:i % questions.length});
 }
 
-// Obstacles (red squares)
+// Obstacles (red squares, smaller)
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
   for(let i=0;i<25;i++){
     const obsX = 400 + i*600 + Math.random()*200;
-    const obsY = (Math.random()*(laneHeight-40))-(laneHeight/2-20);
-    obstacles.push({x:obsX, lane:l, width:40, height:40, yOffset:obsY});
+    const obsY = (Math.random()*(laneHeight-25))-(laneHeight/2-12);
+    obstacles.push({x:obsX, lane:l, width:25, height:25, yOffset:obsY});
   }
 }
 
@@ -199,7 +199,7 @@ function moveAI(ai){
   }
 }
 
-// Draw lane lines
+// Draw lanes
 function drawLaneLines(){
   ctx.strokeStyle='white';
   ctx.lineWidth=2;
@@ -240,7 +240,6 @@ function loop(){
     movePlayerLane();
     cameraX = player.x - 200;
 
-    // Draw background
     if(backgroundImg.complete){
       for(let i=0;i<trackLength;i+=backgroundImg.width){
         ctx.drawImage(backgroundImg,i - cameraX,0,backgroundImg.width,canvas.height);
