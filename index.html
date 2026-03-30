@@ -4,45 +4,22 @@
 <meta charset="UTF-8">
 <title>🔥 Mario Stats Kart - Lane AI</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
-body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
-#startScreen {
-  position:absolute; top:0; left:0; width:100%; height:100%;
-  background:#87cefa;
-  display:flex; flex-direction:column; justify-content:center; align-items:center;
-  z-index:30; color:white;
-}
-#startScreen h1 {
-  font-family: 'Press Start 2P', cursive;
-  font-size:48px;
-  margin:0;
-  text-shadow: 2px 2px 4px #000;
-}
-#startScreen button {
-  font-size:24px; padding:15px 30px; margin-top:30px; cursor:pointer;
-  background:#ffcc00; border:none; border-radius:12px;
-  font-family: 'Press Start 2P', cursive;
-}
-#timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
-#questionPanel { 
-  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); 
-  width:320px; height:auto; background:red; 
-  display:none; z-index:20; text-align:center; border-radius:8px; 
-  display:flex; flex-direction:column; justify-content:center; align-items:center;
-  color:white; font-family: 'Press Start 2P', cursive;
-  padding:10px;
-}
-#questionText { padding:10px; font-size:14px; }
-#answerButtons button { margin:5px; padding:8px 15px; font-size:12px; background:white; color:black; border:none; border-radius:6px; cursor:pointer; }
-#highScores { position:absolute; top:0; right:0; width:300px; background:rgba(255,255,255,0.9); padding:10px; border-radius:12px; z-index:10; max-height:80vh; overflow:auto;}
-canvas { display:block; }
+  body { margin:0; overflow:hidden; font-family:'Press Start 2P', cursive; background:#87cefa; }
+  #timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
+  #questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:red; padding:20px; border-radius:10px; display:none; z-index:20; max-width:500px; text-align:center;}
+  #questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
+  #startScreen { position:absolute; top:0; left:0; width:100%; height:100%; background:#87cefa; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:48px; z-index:30; }
+  #startScreen button { font-size:32px; padding:15px 30px; margin-top:20px; cursor:pointer; }
+  #highScores { position:absolute; top:0; right:0; width:300px; background:rgba(255,255,255,0.9); padding:10px; border-radius:12px; z-index:10; max-height:80vh; overflow:auto;}
+  canvas { display:block; }
 </style>
 </head>
 <body>
 
 <div id="startScreen">
-  <h1>Chapter 13 Review</h1>
+  MARIO STATS KART
   <button id="startButton">Start</button>
 </div>
 
@@ -69,46 +46,29 @@ canvas.height = window.innerHeight;
 let gamePaused = false;
 let gameStarted = false;
 let startTime, elapsedTime = 0;
-const baseSpeed = 2.2;
+const baseSpeed = 2.5; // slower for control
 
-const trackLength = 5000;
+const trackLength = 20000;
 const laneCount = 4;
 const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Load images
-const loadedAssets = {};
-const assetSources = {
-  background: 'track_background.png',
-  player: 'mario.png',
-  ai: ['luigi.png','peach.png','yoshi.png'],
-  luckyBlock: 'lucky_block.png'
-};
+const backgroundImg = new Image(); backgroundImg.src = "track_background.png";
+const startBgImg = new Image(); startBgImg.src = "start_background.png";
+const playerImg = new Image(); playerImg.src = "mario.png";
+const aiImgs = [new Image(), new Image(), new Image()];
+aiImgs[0].src = "luigi.png"; aiImgs[1].src = "peach.png"; aiImgs[2].src = "yoshi.png";
+const luckyBlockImg = new Image(); luckyBlockImg.src = "lucky_block.png";
 
-function preloadImages(callback) {
-  let total = 1 + 1 + assetSources.ai.length + 1;
-  let loaded = 0;
-  function checkDone() { loaded++; if(loaded>=total) callback(); }
+// Player
+const player = {x:100, lane:1, yOffset:0, width:50, height:50, speed:baseSpeed, avatarImg:playerImg};
 
-  loadedAssets.background = new Image(); loadedAssets.background.src = assetSources.background; loadedAssets.background.onload = checkDone;
-  loadedAssets.player = new Image(); loadedAssets.player.src = assetSources.player; loadedAssets.player.onload = checkDone;
-  loadedAssets.luckyBlock = new Image(); loadedAssets.luckyBlock.src = assetSources.luckyBlock; loadedAssets.luckyBlock.onload = checkDone;
-  
-  loadedAssets.ai = [];
-  assetSources.ai.forEach((src,i)=>{
-    const img = new Image();
-    img.src = src;
-    img.onload = checkDone;
-    loadedAssets.ai.push(img);
-  });
-}
-
-// Player & AI
-const player = {x:100, lane:1, yOffset:0, width:50, height:50, speed:baseSpeed, avatarImg:null};
+// AI drivers
 const aiDrivers = [
-  {lane:0, x:150, width:50, height:50, speed:baseSpeed, yOffset:0, img:null},
-  {lane:2, x:200, width:50, height:50, speed:baseSpeed, yOffset:0, img:null},
-  {lane:3, x:250, width:50, height:50, speed:baseSpeed, yOffset:0, img:null}
+  {lane:0, x:150, width:50, height:50, speed:baseSpeed, yOffset:0, img:aiImgs[0]},
+  {lane:2, x:200, width:50, height:50, speed:baseSpeed, yOffset:0, img:aiImgs[1]},
+  {lane:3, x:250, width:50, height:50, speed:baseSpeed, yOffset:0, img:aiImgs[2]}
 ];
 
 // Questions
@@ -132,17 +92,17 @@ const questions = [
 // Lucky blocks
 let blocks = [];
 for(let i=0;i<questions.length*2;i++){
-  const spacing = 300 + i*600 + Math.random()*200;
-  blocks.push({x:spacing, lane:player.lane, width:35, height:35, hit:false, questionIndex:i % questions.length});
+  const spacing = 500 + i*1200 + Math.random()*300;
+  blocks.push({x:spacing, lane:player.lane, width:40, height:40, hit:false, questionIndex:i % questions.length});
 }
 
-// Obstacles - now simple red squares
+// Obstacles (invisible but block collisions)
 let obstacles = [];
 for(let l=0;l<laneCount;l++){
-  for(let i=0;i<15;i++){
-    const obsX = 200 + i*400 + Math.random()*200;
-    const obsY = (Math.random()*(laneHeight-30)) - (laneHeight/2-15);
-    obstacles.push({x:obsX, lane:l, width:35, height:35, yOffset:obsY});
+  for(let i=0;i<25;i++){
+    const obsX = 400 + i*600 + Math.random()*200;
+    const obsY = (Math.random()*(laneHeight-40))-(laneHeight/2-20);
+    obstacles.push({x:obsX, lane:l, width:40, height:40, yOffset:obsY});
   }
 }
 
@@ -159,7 +119,7 @@ function updateTimer(){
   }
 }
 
-// Collision
+// Collision detection
 function isColliding(a,b){ 
   const aY = a.lane*laneHeight + laneHeight/2 + (a.yOffset||0) - a.height/2;
   const bY = b.lane*laneHeight + laneHeight/2 + (b.yOffset||0) - b.height/2;
@@ -173,10 +133,18 @@ const answerButtons = document.getElementById('answerButtons');
 
 function applyPowerup(correct, correctAnswer){
   if(correct){
-    if(Math.random()<0.5){ player.speed *= 1.5; setTimeout(()=>player.speed=baseSpeed,3000); }
-    else { aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5); setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000); }
+    if(Math.random()<0.5){
+      player.speed *= 1.5;
+      alert("Correct! Speed boost!");
+      setTimeout(()=>player.speed=baseSpeed,3000);
+    } else {
+      aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5);
+      alert("Correct! AI slowed down!");
+      setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
+    }
   } else {
     aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
+    alert("Wrong! Correct answer: " + correctAnswer);
     setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
   }
 }
@@ -197,7 +165,7 @@ function askQuestion(block){
     }
     answerButtons.appendChild(btn);
   });
-  questionPanel.style.display='flex';
+  questionPanel.style.display='block';
 }
 
 // Player movement
@@ -205,49 +173,66 @@ function movePlayerLane(){
   const maxOffset = laneHeight/2 - player.height/2;
   if(keys['ArrowUp']) { 
     let nextY = player.yOffset - player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){ player.yOffset = Math.max(-maxOffset, nextY); }
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
+      player.yOffset = Math.max(-maxOffset, nextY); 
+    }
   }
   if(keys['ArrowDown']) { 
     let nextY = player.yOffset + player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){ player.yOffset = Math.min(maxOffset, nextY); }
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
+      player.yOffset = Math.min(maxOffset, nextY); 
+    }
   }
 }
 
 // AI movement
 function moveAI(ai){
   const maxOffset = laneHeight/2 - ai.height/2;
-  ai.x += ai.speed;
-  obstacles.forEach(obs=>{
-    if(isColliding(ai,obs)){
-      if(ai.lane>0 && !obstacles.some(o=>o.lane===ai.lane-1 && isColliding({...ai,lane:ai.lane-1},o))){ ai.lane--; }
-      else if(ai.lane<laneCount-1 && !obstacles.some(o=>o.lane===ai.lane+1 && isColliding({...ai,lane:ai.lane+1},o))){ ai.lane++; }
-      else { ai.x -= ai.speed*0.5; }
-    }
-  });
+  let nextX = ai.x + ai.speed;
+  let blocked = obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:nextX}, obs));
+
+  if(!blocked) ai.x = nextX;
+  else {
+    // dodge randomly within lane
+    let moveUp = Math.random()>0.5;
+    if(moveUp && ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset - ai.speed}, obs))) ai.yOffset -= ai.speed;
+    else if(!moveUp && ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,yOffset:ai.yOffset + ai.speed}, obs))) ai.yOffset += ai.speed;
+    else ai.x += ai.speed*0.5; // small forward movement
+  }
 }
 
-// Draw lanes
+// Draw lane lines
 function drawLaneLines(){
   ctx.strokeStyle='white';
   ctx.lineWidth=2;
   for(let l=1;l<laneCount;l++){
     ctx.beginPath();
-    ctx.moveTo(0, l*laneHeight);
-    ctx.lineTo(canvas.width, l*laneHeight);
+    ctx.moveTo(0,l*laneHeight);
+    ctx.lineTo(canvas.width,l*laneHeight);
     ctx.stroke();
   }
 }
 
-// Draw finish line
-function drawFinishLine(){
-  ctx.fillStyle='black';
-  ctx.fillRect(trackLength - cameraX, 0, 10, canvas.height);
-  ctx.fillStyle='white';
-  ctx.font='24px Press Start 2P';
-  ctx.fillText('FINISH', trackLength - cameraX - 50, 50);
+// High scores
+function saveHighScore(name,time){
+  let scores = JSON.parse(localStorage.getItem('highScores')||'[]');
+  scores.push({name:name,time:parseFloat(time)});
+  scores.sort((a,b)=>a.time-b.time);
+  localStorage.setItem('highScores',JSON.stringify(scores));
+  displayHighScores();
+}
+function displayHighScores(){
+  const scoreList = document.getElementById('scoreList');
+  scoreList.innerHTML='';
+  const scores = JSON.parse(localStorage.getItem('highScores')||'[]');
+  scores.forEach(s=>{
+    const li = document.createElement('li');
+    li.innerText = `${s.name}: ${s.time}s`;
+    scoreList.appendChild(li);
+  });
 }
 
-// Main loop
+// Main game loop
 function loop(){
   if(!gameStarted) return;
   updateTimer();
@@ -257,68 +242,67 @@ function loop(){
     movePlayerLane();
     cameraX = player.x - 200;
 
-    const startTile = Math.floor(cameraX / loadedAssets.background.width);
-    for(let i=startTile; i<startTile+3; i++){
-      ctx.drawImage(loadedAssets.background, i*loadedAssets.background.width - cameraX, 0, loadedAssets.background.width, canvas.height);
+    // Draw background
+    if(backgroundImg.complete){
+      for(let i=0;i<trackLength;i+=backgroundImg.width){
+        ctx.drawImage(backgroundImg,i - cameraX,0,backgroundImg.width,canvas.height);
+      }
     }
 
     drawLaneLines();
 
-    obstacles.forEach(obs=>{
-      ctx.fillStyle='red';
-      ctx.fillRect(obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
-    });
-
+    // Draw lucky blocks
     blocks.forEach(block=>{
       if(!block.hit){
-        ctx.drawImage(loadedAssets.luckyBlock, block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
+        ctx.drawImage(luckyBlockImg, block.x-cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
         if(isColliding(player,block)) askQuestion(block);
       }
     });
 
-    aiDrivers.forEach((ai,i)=>{
+    // Move & draw AI
+    aiDrivers.forEach(ai=>{
       moveAI(ai);
-      ctx.drawImage(loadedAssets.ai[i], ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
+      ctx.drawImage(ai.img, ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
     });
 
+    // Move player forward
     let nextX = player.x + player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))){
-      player.x = nextX;
+    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))) player.x = nextX;
+
+    // Draw player
+    ctx.drawImage(player.avatarImg, player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
+
+    // Finish line
+    if(player.x + player.width >= trackLength - 100){
+      ctx.fillStyle='white';
+      ctx.fillRect(trackLength - 100 - cameraX,0,20,canvas.height);
+      finalScreen();
     }
-
-    ctx.drawImage(loadedAssets.player, player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
-
-    drawFinishLine();
-
-    if(player.x + player.width >= trackLength - 50) finalScreen();
   }
 
   requestAnimationFrame(loop);
 }
 
+// Final screen
 function finalScreen(){
   gamePaused = true;
-  let name = prompt(`You finished in ${elapsedTime}s! Enter your name:`);
-  if(name) saveHighScore(name, elapsedTime);
+  let name = prompt(`You finished in ${elapsedTime}s! Enter your name for high scores:`);
+  if(name) saveHighScore(name,elapsedTime);
   location.reload();
 }
 
 // Start button
 document.getElementById('startButton').onclick = ()=>{
-  preloadImages(()=> {
-    player.avatarImg = loadedAssets.player;
-    aiDrivers.forEach((ai,i)=>ai.img = loadedAssets.ai[i]);
-    startGame();
-  });
-}
-
-function startGame(){
   gameStarted = true;
   startTime = Date.now();
   document.getElementById('bgMusic').play();
   document.getElementById('startScreen').style.display='none';
+  displayHighScores();
   loop();
 }
+
+displayHighScores();
 </script>
+
 </body>
 </html>
