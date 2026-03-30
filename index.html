@@ -3,36 +3,89 @@
 <head>
 <meta charset="UTF-8">
 <title>🔥 Mario Stats Kart</title>
+
 <style>
 body { margin:0; overflow:hidden; font-family:sans-serif; }
+
+/* ---------- START SCREEN ---------- */
 #startScreen {
-  position:absolute; width:100%; height:100%;
-  display:flex; flex-direction:column;
-  justify-content:center; align-items:center;
-  background:url('start_background.png') center/cover;
-  color:white; font-size:50px; z-index:10;
-}
-#startScreen button { font-size:30px; padding:15px 30px; }
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
 
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  color:white;
+  font-size:50px;
+  z-index:10;
+
+  background-image: url('./start_background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* dark overlay for readability */
+#startScreen::before {
+  content:"";
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.4);
+  z-index:-1;
+}
+
+#startScreen button {
+  font-size:30px;
+  padding:15px 30px;
+  margin-top:20px;
+}
+
+/* ---------- TIMER ---------- */
 #timerBoard {
-  position:absolute; top:10px; left:50%;
+  position:absolute;
+  top:10px;
+  left:50%;
   transform:translateX(-50%);
-  background:white; padding:10px 20px;
+  background:white;
+  padding:10px 20px;
   border-radius:10px;
+  font-size:20px;
 }
 
+/* ---------- QUESTION PANEL ---------- */
 #questionPanel {
-  position:absolute; top:50%; left:50%;
+  position:absolute;
+  top:50%;
+  left:50%;
   transform:translate(-50%,-50%);
-  display:none; z-index:20;
-  background:url('question_background.png') center/cover;
-  padding:20px; border-radius:15px;
-}
-#questionPanel button { margin:5px; padding:10px; }
+  display:none;
+  z-index:20;
 
+  background-image: url('./question_background.png');
+  background-size: cover;
+  background-position: center;
+
+  padding:20px;
+  border-radius:15px;
+  max-width:500px;
+  text-align:center;
+}
+
+#questionPanel button {
+  margin:5px;
+  padding:10px;
+  cursor:pointer;
+}
+
+/* ---------- CANVAS ---------- */
 canvas { display:block; }
 </style>
 </head>
+
 <body>
 
 <div id="startScreen">
@@ -52,6 +105,7 @@ canvas { display:block; }
 <canvas id="game"></canvas>
 
 <script>
+// ---------- SETUP ----------
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
@@ -67,29 +121,32 @@ let gameStarted=false;
 let gamePaused=false;
 let startTime;
 
-// PLAYER
+// ---------- PLAYER ----------
 const player = {
-  x:100, lane:1, yOffset:0,
-  width:50, height:50,
+  x:100,
+  lane:1,
+  yOffset:0,
+  width:50,
+  height:50,
   speed:baseSpeed
 };
 
-// AI
+// ---------- AI ----------
 const aiDrivers = [
   {lane:0,x:150,yOffset:0,width:50,height:50,speed:baseSpeed},
   {lane:2,x:200,yOffset:0,width:50,height:50,speed:baseSpeed},
   {lane:3,x:250,yOffset:0,width:50,height:50,speed:baseSpeed}
 ];
 
-// QUESTIONS
+// ---------- QUESTIONS ----------
 const questions = [
   {q:"Why do sample proportions vary?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
   {q:"Randomization Condition?", a:"Sample randomly selected", options:["Sample randomly selected","Sample large","Population small"]},
   {q:"10% Condition?", a:"Sample <10%", options:["Sample <10%","Sample >50%","Any sample"]},
-  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Uniform","Skewed"]},
+  {q:"Sampling distribution shape?", a:"Approximately normal", options:["Approximately normal","Uniform","Skewed"]}
 ];
 
-// OBSTACLES
+// ---------- OBSTACLES ----------
 const obstacles=[];
 for(let i=500;i<trackLength;i+=600){
   for(let l=0;l<laneCount;l++){
@@ -97,28 +154,30 @@ for(let i=500;i<trackLength;i+=600){
       obstacles.push({
         x:i+Math.random()*200,
         lane:l,
-        width:50,height:50,
+        width:50,
+        height:50,
         yOffset:(Math.random()-0.5)*80
       });
     }
   }
 }
 
-// LUCKY BLOCKS (PLAYER ONLY)
+// ---------- LUCKY BLOCKS ----------
 const blocks=[];
 for(let i=800;i<trackLength;i+=1200){
   blocks.push({x:i,lane:player.lane,width:40,height:40});
 }
 
-// CONTROLS
+// ---------- CONTROLS ----------
 const keys={};
 onkeydown=e=>keys[e.key]=true;
 onkeyup=e=>keys[e.key]=false;
 
-// QUESTION SYSTEM
+// ---------- QUESTION ----------
 function askQuestion(callback){
   gamePaused=true;
   const q = questions[Math.floor(Math.random()*questions.length)];
+
   document.getElementById('questionText').innerText=q.q;
   const ansDiv=document.getElementById('answers');
   ansDiv.innerHTML="";
@@ -126,6 +185,7 @@ function askQuestion(callback){
   q.options.forEach(opt=>{
     const btn=document.createElement('button');
     btn.innerText=opt;
+
     btn.onclick=()=>{
       document.getElementById('questionPanel').style.display='none';
       gamePaused=false;
@@ -150,13 +210,14 @@ function askQuestion(callback){
 
       callback();
     };
+
     ansDiv.appendChild(btn);
   });
 
   document.getElementById('questionPanel').style.display='block';
 }
 
-// ---------- ULTRA SMART AI ----------
+// ---------- SMART AI ----------
 function updateAI(){
   aiDrivers.forEach(ai=>{
     const maxOffset = laneHeight/2 - ai.height/2;
@@ -169,24 +230,15 @@ function updateAI(){
     let blocked=false;
 
     upcoming.forEach(obs=>{
-      const aiY = ai.yOffset;
-      const obsY = obs.yOffset||0;
-      if(Math.abs(aiY - obsY) < ai.height) blocked=true;
+      if(Math.abs(ai.yOffset - (obs.yOffset||0)) < ai.height){
+        blocked=true;
+      }
     });
 
     if(blocked){
       if(!ai.avoiding){
         ai.avoiding=true;
-        const canUp = ai.yOffset > -maxOffset;
-        const canDown = ai.yOffset < maxOffset;
-
-        if(canUp && canDown){
-          ai.dir = Math.random()<0.5?-1:1;
-        } else if(canUp){
-          ai.dir = -1;
-        } else {
-          ai.dir = 1;
-        }
+        ai.dir = Math.random()<0.5?-1:1;
       }
       ai.yOffset += ai.dir*3;
     } else {
@@ -201,7 +253,7 @@ function updateAI(){
   });
 }
 
-// COLLISION BLOCK
+// ---------- COLLISION ----------
 function blocked(x,lane,yOffset){
   return obstacles.some(o=>{
     return o.lane===lane &&
@@ -210,7 +262,7 @@ function blocked(x,lane,yOffset){
   });
 }
 
-// GAME LOOP
+// ---------- GAME LOOP ----------
 function loop(){
   if(!gameStarted) return;
 
@@ -218,7 +270,6 @@ function loop(){
     const time = ((Date.now()-startTime)/1000).toFixed(1);
     document.getElementById('timerBoard').innerText="Time: "+time;
 
-    // PLAYER MOVE
     if(keys.ArrowUp) player.yOffset-=3;
     if(keys.ArrowDown) player.yOffset+=3;
 
@@ -235,7 +286,6 @@ function loop(){
 
     updateAI();
 
-    // BLOCK HIT
     blocks.forEach((b,i)=>{
       if(Math.abs(b.x-player.x)<40){
         blocks.splice(i,1);
@@ -246,7 +296,6 @@ function loop(){
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // LANES
   ctx.strokeStyle="white";
   for(let i=1;i<laneCount;i++){
     ctx.beginPath();
@@ -255,7 +304,6 @@ function loop(){
     ctx.stroke();
   }
 
-  // OBSTACLES
   ctx.fillStyle="red";
   obstacles.forEach(o=>{
     ctx.fillRect(o.x-cameraX,
@@ -263,7 +311,6 @@ function loop(){
       o.width,o.height);
   });
 
-  // BLOCKS
   ctx.fillStyle="yellow";
   blocks.forEach(b=>{
     ctx.fillRect(b.x-cameraX,
@@ -271,30 +318,22 @@ function loop(){
       b.width,b.height);
   });
 
-  // PLAYER
   ctx.fillStyle="red";
   ctx.fillRect(player.x-cameraX,
     player.lane*laneHeight+laneHeight/2+player.yOffset,
     player.width,player.height);
 
-  // AI
+  ctx.fillStyle="blue";
   aiDrivers.forEach(ai=>{
-    ctx.fillStyle="blue";
     ctx.fillRect(ai.x-cameraX,
       ai.lane*laneHeight+laneHeight/2+ai.yOffset,
       ai.width,ai.height);
   });
 
-  // FINISH
   ctx.fillStyle="black";
   ctx.fillRect(trackLength-cameraX,0,20,canvas.height);
 
   if(player.x>=trackLength){
-    const name = prompt("Enter name:");
-    let scores = JSON.parse(localStorage.getItem("scores")||"[]");
-    scores.push({name,time:(Date.now()-startTime)/1000});
-    scores.sort((a,b)=>a.time-b.time);
-    localStorage.setItem("scores",JSON.stringify(scores));
     alert("Finished!");
     location.reload();
   }
@@ -302,7 +341,7 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-// START
+// ---------- START ----------
 document.getElementById('startBtn').onclick=()=>{
   gameStarted=true;
   startTime=Date.now();
