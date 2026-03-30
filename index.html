@@ -7,15 +7,11 @@
 body { margin:0; overflow:hidden; font-family:sans-serif; background:#87cefa; }
 #startScreen {
   position:absolute; top:0; left:0; width:100%; height:100%;
-  background:#333 url('start_background.png') center/cover no-repeat;
+  background:#333; /* plain background for instant load */
   display:flex; flex-direction:column; justify-content:center; align-items:center;
   font-size:48px; z-index:30; color:white;
 }
 #startScreen button { font-size:32px; padding:15px 30px; margin-top:20px; cursor:pointer; }
-#loadingBarContainer {
-  width:60%; height:30px; background:rgba(255,255,255,0.5); border-radius:15px; margin-top:30px; overflow:hidden;
-}
-#loadingBar { width:0%; height:100%; background:gold; transition:width 0.3s; }
 #timerBoard { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:24px; background:rgba(255,255,255,0.8); padding:10px 20px; border-radius:12px; z-index:10;}
 #questionPanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.95); padding:20px; border-radius:15px; display:none; z-index:20; max-width:500px; text-align:center;}
 #questionPanel button { margin:5px; padding:10px 20px; font-size:16px; }
@@ -27,8 +23,7 @@ canvas { display:block; }
 
 <div id="startScreen">
   Chapter 13 Review
-  <div id="loadingBarContainer"><div id="loadingBar"></div></div>
-  <button id="startButton" style="display:none;">Start</button>
+  <button id="startButton">Start</button>
 </div>
 
 <div id="timerBoard">Time: 0s</div>
@@ -54,69 +49,39 @@ canvas.height = window.innerHeight;
 let gamePaused = false;
 let gameStarted = false;
 let startTime, elapsedTime = 0;
-const baseSpeed = 2.5; // slower for easier play
+const baseSpeed = 2.5; 
 
-// Track & lanes
-const trackLength = 5000; // shorter track for speed
+const trackLength = 5000; 
 const laneCount = 4;
 const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
-// Assets to preload
-const assets = {
-  images: {
-    background: 'track_background.png',
-    player: 'mario.png',
-    ai: ['luigi.png','peach.png','yoshi.png'],
-    luckyBlock: 'lucky_block.png'
-  },
-  audio: ['background.mp3']
+// Load images (all small for fast load)
+const loadedAssets = {};
+const assetSources = {
+  background: 'track_background.png',
+  player: 'mario.png',
+  ai: ['luigi.png','peach.png','yoshi.png'],
+  luckyBlock: 'lucky_block.png'
 };
 
-const loadedAssets = {};
+function preloadImages(callback) {
+  let total = 1 + 1 + assetSources.ai.length + 1; // background + player + AI + lucky
+  let loaded = 0;
+  
+  function checkDone() { loaded++; if(loaded>=total) callback(); }
 
-// Preload function
-let assetsLoaded = 0;
-let totalAssets = 1 + 1 + assets.images.ai.length + 1; // background, player, 3 AI, lucky block
-
-function preloadAssets() {
-  // Background
-  loadedAssets.background = new Image();
-  loadedAssets.background.src = assets.images.background;
-  loadedAssets.background.onload = updateLoading;
-
-  // Player
-  loadedAssets.player = new Image();
-  loadedAssets.player.src = assets.images.player;
-  loadedAssets.player.onload = updateLoading;
-
-  // AI
+  loadedAssets.background = new Image(); loadedAssets.background.src = assetSources.background; loadedAssets.background.onload = checkDone;
+  loadedAssets.player = new Image(); loadedAssets.player.src = assetSources.player; loadedAssets.player.onload = checkDone;
+  loadedAssets.luckyBlock = new Image(); loadedAssets.luckyBlock.src = assetSources.luckyBlock; loadedAssets.luckyBlock.onload = checkDone;
+  
   loadedAssets.ai = [];
-  assets.images.ai.forEach((src,i)=>{
+  assetSources.ai.forEach((src,i)=>{
     const img = new Image();
     img.src = src;
-    img.onload = updateLoading;
+    img.onload = checkDone;
     loadedAssets.ai.push(img);
   });
-
-  // Lucky Block
-  loadedAssets.luckyBlock = new Image();
-  loadedAssets.luckyBlock.src = assets.images.luckyBlock;
-  loadedAssets.luckyBlock.onload = updateLoading;
-
-  // Audio
-  const audio = document.getElementById('bgMusic');
-  audio.oncanplaythrough = updateLoading;
-}
-
-// Loading bar
-function updateLoading() {
-  assetsLoaded++;
-  const percent = Math.round((assetsLoaded/totalAssets)*100);
-  document.getElementById('loadingBar').style.width = percent+'%';
-  if(assetsLoaded >= totalAssets) {
-    document.getElementById('startButton').style.display='block';
-  }
 }
 
 // Player & AI
@@ -175,7 +140,7 @@ function updateTimer(){
   }
 }
 
-// Collision detection
+// Collision
 function isColliding(a,b){ 
   const aY = a.lane*laneHeight + laneHeight/2 + (a.yOffset||0) - a.height/2;
   const bY = b.lane*laneHeight + laneHeight/2 + (b.yOffset||0) - b.height/2;
@@ -261,7 +226,7 @@ function moveAI(ai){
   }
 }
 
-// Draw lane lines
+// Draw lanes
 function drawLaneLines(){
   ctx.strokeStyle='white';
   ctx.lineWidth=2;
@@ -292,7 +257,7 @@ function displayHighScores(){
   });
 }
 
-// Main game loop
+// Game loop
 function loop(){
   if(!gameStarted) return;
   updateTimer();
@@ -302,7 +267,6 @@ function loop(){
     movePlayerLane();
     cameraX = player.x - 200;
 
-    // Draw background only near camera
     const startTile = Math.floor(cameraX / loadedAssets.background.width);
     for(let i=startTile; i<startTile+3; i++){
       ctx.drawImage(loadedAssets.background, i*loadedAssets.background.width - cameraX, 0, loadedAssets.background.width, canvas.height);
@@ -310,12 +274,10 @@ function loop(){
 
     drawLaneLines();
 
-    // Draw obstacles
     obstacles.forEach(obs=>{
       ctx.drawImage(loadedAssets.luckyBlock, obs.x - cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
     });
 
-    // Draw lucky blocks
     blocks.forEach(block=>{
       if(!block.hit){
         ctx.drawImage(loadedAssets.luckyBlock, block.x - cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
@@ -323,42 +285,38 @@ function loop(){
       }
     });
 
-    // Move & draw AI
     aiDrivers.forEach((ai,i)=>{
       moveAI(ai);
       ctx.drawImage(loadedAssets.ai[i], ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
     });
 
-    // Move player forward
     let nextX = player.x + player.speed;
     if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))){
       player.x = nextX;
     }
 
-    // Draw player
     ctx.drawImage(loadedAssets.player, player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
 
-    // Finish
     if(player.x + player.width >= trackLength - 50) finalScreen();
   }
 
   requestAnimationFrame(loop);
 }
 
-// Final screen
 function finalScreen(){
   gamePaused = true;
-  let name = prompt(`You finished in ${elapsedTime}s! Enter your name for high scores:`);
+  let name = prompt(`You finished in ${elapsedTime}s! Enter your name:`);
   if(name) saveHighScore(name, elapsedTime);
   location.reload();
 }
 
 // Start button
 document.getElementById('startButton').onclick = ()=>{
-  // assign loaded images
-  player.avatarImg = loadedAssets.player;
-  aiDrivers.forEach((ai,i)=>ai.img = loadedAssets.ai[i]);
-  startGame();
+  preloadImages(()=> {
+    player.avatarImg = loadedAssets.player;
+    aiDrivers.forEach((ai,i)=>ai.img = loadedAssets.ai[i]);
+    startGame();
+  });
 }
 
 function startGame(){
@@ -370,10 +328,8 @@ function startGame(){
   loop();
 }
 
-// Begin preloading
-preloadAssets();
 displayHighScores();
-
 </script>
+
 </body>
 </html>
