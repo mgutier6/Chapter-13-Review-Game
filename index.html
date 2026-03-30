@@ -18,7 +18,7 @@ canvas { display:block; }
 
 <div id="startScreen">
   Chapter 13 Review
-  <button id="startButton">Start</button>
+  <button id="startButton" disabled>Start</button>
 </div>
 
 <div id="timerBoard">Time: 0s</div>
@@ -44,45 +44,36 @@ canvas.height = window.innerHeight;
 let gamePaused = false;
 let gameStarted = false;
 let startTime, elapsedTime = 0;
-const baseSpeed = 2.5; // slower for control
+const baseSpeed = 2.2;
 
-// Track & lanes
 const trackLength = 20000;
 const laneCount = 4;
 const laneHeight = canvas.height / (laneCount + 1);
 let cameraX = 0;
 
 // Load images
-const backgroundImg = new Image();
-backgroundImg.src = "track_background.png";
+const images = {};
+const imageList = ['track_background.png','mario.png','luigi.png','peach.png','yoshi.png','lucky_block.png','obstacle.png'];
+let imagesLoaded = 0;
 
-const playerImg = new Image();
-playerImg.src = "mario.png";
-
-const aiImgs = [
-  new Image(), new Image(), new Image()
-];
-aiImgs[0].src = "luigi.png";
-aiImgs[1].src = "peach.png";
-aiImgs[2].src = "yoshi.png";
-
-const blockImg = new Image();
-blockImg.src = "block.png";
-
-const obstacleImg = new Image();
-obstacleImg.src = "obstacle.png";
+imageList.forEach(src => {
+  const img = new Image();
+  img.src = src;
+  img.onload = () => { imagesLoaded++; if(imagesLoaded===imageList.length) document.getElementById('startButton').disabled=false; }
+  images[src] = img;
+});
 
 // Player
-const player = {x:100, lane:1, yOffset:0, width:40, height:40, speed:baseSpeed, avatarImg:playerImg};
+const player = {x:100, lane:1, yOffset:0, width:40, height:40, speed:baseSpeed, avatarImg:'mario.png'};
 
 // AI drivers
 const aiDrivers = [
-  {lane:0, x:150, width:40, height:40, speed:baseSpeed, yOffset:0, img:aiImgs[0]},
-  {lane:2, x:200, width:40, height:40, speed:baseSpeed, yOffset:0, img:aiImgs[1]},
-  {lane:3, x:250, width:40, height:40, speed:baseSpeed, yOffset:0, img:aiImgs[2]}
+  {lane:0, x:150, width:40, height:40, speed:baseSpeed, yOffset:0, img:'luigi.png'},
+  {lane:2, x:200, width:40, height:40, speed:baseSpeed, yOffset:0, img:'peach.png'},
+  {lane:3, x:250, width:40, height:40, speed:baseSpeed, yOffset:0, img:'yoshi.png'}
 ];
 
-// Questions remain unchanged
+// Questions (unchanged)
 const questions = [
   {q:"Why do sample proportions vary from sample to sample?", a:"Due to random sampling variability.", options:["Due to random sampling variability.","Always same","Depends on n"]},
   {q:"What is the Randomization Condition?", a:"The sample must be randomly selected.", options:["The sample must be randomly selected.","Population small","Sample >10%"]},
@@ -100,244 +91,120 @@ const questions = [
   {q:"Which condition is most important for using a normal model?", a:"Success/Failure condition", options:["Success/Failure condition","Randomization condition","10% condition"]}
 ];
 
-// Lucky blocks
-let blocks = [];
-for(let i=0; i<questions.length*2; i++){ 
-  const spacing = 500 + i*1000 + Math.random()*200; 
-  blocks.push({x:spacing, lane:player.lane, width:30, height:30, hit:false, questionIndex:i % questions.length});
+// Blocks and Obstacles
+let blocks = [], obstacles=[];
+for(let i=0;i<questions.length*2;i++){
+  const spacing = 500 + i*1000 + Math.random()*200;
+  blocks.push({x:spacing, lane:player.lane, width:30, height:30, hit:false, questionIndex:i%questions.length});
 }
-
-// Obstacles
-let obstacles = [];
-for(let l=0; l<laneCount; l++){
+for(let l=0;l<laneCount;l++){
   for(let i=0;i<25;i++){
-    const obsX = 400 + i*500 + Math.random()*150;
-    const obsY = 0;
-    obstacles.push({x:obsX, lane:l, width:30, height:30, yOffset:obsY});
+    const x = 400 + i*500 + Math.random()*150;
+    obstacles.push({x, lane:l, width:30, height:30, yOffset:0});
   }
 }
 
 // Controls
 const keys = {};
-window.addEventListener('keydown', e=>keys[e.key]=true);
-window.addEventListener('keyup', e=>keys[e.key]=false);
+window.addEventListener('keydown',e=>keys[e.key]=true);
+window.addEventListener('keyup',e=>keys[e.key]=false);
 
 // Timer
-function updateTimer(){
-  if(gameStarted && !gamePaused){
-    elapsedTime = ((Date.now()-startTime)/1000).toFixed(2);
-    document.getElementById('timerBoard').innerText = `Time: ${elapsedTime}s`;
-  }
-}
+function updateTimer(){ if(gameStarted&&!gamePaused){ elapsedTime=((Date.now()-startTime)/1000).toFixed(2); document.getElementById('timerBoard').innerText=`Time: ${elapsedTime}s`; }}
 
-// Collision detection
-function isColliding(a,b){ 
-  const aY = a.lane*laneHeight + laneHeight/2 + (a.yOffset||0) - a.height/2;
-  const bY = b.lane*laneHeight + laneHeight/2 + (b.yOffset||0) - b.height/2;
-  return a.x < b.x + b.width && a.x + a.width > b.x && aY < bY + b.height && aY + a.height > bY;
-}
+// Collision
+function isColliding(a,b){ const aY=a.lane*laneHeight+laneHeight/2+(a.yOffset||0)-a.height/2; const bY=b.lane*laneHeight+laneHeight/2+(b.yOffset||0)-b.height/2; return a.x < b.x+b.width && a.x+a.width > b.x && aY < bY+b.height && aY + a.height > bY;}
 
-// Question UI
-const questionPanel = document.getElementById('questionPanel');
-const questionText = document.getElementById('questionText');
-const answerButtons = document.getElementById('answerButtons');
-
+// Question panel
+const questionPanel=document.getElementById('questionPanel');
+const questionText=document.getElementById('questionText');
+const answerButtons=document.getElementById('answerButtons');
 function applyPowerup(correct, correctAnswer){
-  if(correct){
-    if(Math.random()<0.5){
-      player.speed *= 1.5;
-      alert("Correct! Speed boost!");
-      setTimeout(()=>player.speed=baseSpeed,3000);
-    } else {
-      aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5);
-      alert("Correct! AI slowed down!");
-      setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
-    }
-  } else {
-    aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5);
-    alert("Wrong! Correct answer: " + correctAnswer);
-    setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
+  if(correct){ 
+    if(Math.random()<0.5){ player.speed*=1.5; alert("Correct! Speed boost!"); setTimeout(()=>player.speed=baseSpeed,3000);} 
+    else { aiDrivers.forEach(ai=>ai.speed=baseSpeed*0.5); alert("Correct! AI slowed down!"); setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);} 
+  } else { 
+    aiDrivers.forEach(ai=>ai.speed=baseSpeed*1.5); alert("Wrong! Correct answer: "+correctAnswer); setTimeout(()=>aiDrivers.forEach(ai=>ai.speed=baseSpeed),3000);
   }
 }
-
-function askQuestion(block){
-  gamePaused = true;
-  const q = questions[block.questionIndex];
-  questionText.innerText = q.q;
-  answerButtons.innerHTML = '';
-  q.options.forEach(opt=>{
-    const btn = document.createElement('button');
-    btn.innerText = opt;
-    btn.onclick = ()=>{
-      questionPanel.style.display='none';
-      block.hit=true;
-      applyPowerup(opt===q.a, q.a);
+function askQuestion(block){ 
+  gamePaused=true; 
+  const q=questions[block.questionIndex]; 
+  questionText.innerText=q.q; 
+  answerButtons.innerHTML=''; 
+  q.options.forEach(opt=>{ 
+    const btn=document.createElement('button'); 
+    btn.innerText=opt; 
+    btn.onclick=()=>{ 
+      questionPanel.style.display='none'; 
+      block.hit=true; 
+      applyPowerup(opt===q.a,q.a); 
       gamePaused=false;
-    }
-    answerButtons.appendChild(btn);
-  });
+    } 
+    answerButtons.appendChild(btn); 
+  }); 
   questionPanel.style.display='block';
 }
 
-// Player movement
-function movePlayerLane(){
-  const maxOffset = laneHeight/2 - player.height/2;
-  if(keys['ArrowUp']) { 
-    let nextY = player.yOffset - player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
-      player.yOffset = Math.max(-maxOffset, nextY); 
-    }
-  }
-  if(keys['ArrowDown']) { 
-    let nextY = player.yOffset + player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY}, obs))){
-      player.yOffset = Math.min(maxOffset, nextY); 
-    }
-  }
+// Player & AI movement
+function movePlayerLane(){ 
+  const maxOffset=laneHeight/2-player.height/2; 
+  if(keys['ArrowUp']){ let nextY=player.yOffset-player.speed; if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY},obs))) player.yOffset=Math.max(-maxOffset,nextY);} 
+  if(keys['ArrowDown']){ let nextY=player.yOffset+player.speed; if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,yOffset:nextY},obs))) player.yOffset=Math.min(maxOffset,nextY);} 
 }
-
-// AI movement
-function moveAI(ai){
-  const maxOffset = laneHeight/2 - ai.height/2;
-  let nextX = ai.x + ai.speed;
-
-  let blocked = obstacles.some(obs => obs.lane === ai.lane && isColliding({...ai,x:nextX}, obs));
-
-  if(!blocked){
-    ai.x = nextX;
-  } else {
-    if(ai.yOffset - ai.speed >= -maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset - ai.speed}, obs))){
-      ai.yOffset -= ai.speed;
-    } else if(ai.yOffset + ai.speed <= maxOffset && !obstacles.some(obs => obs.lane===ai.lane && isColliding({...ai,x:ai.x, yOffset:ai.yOffset + ai.speed}, obs))){
-      ai.yOffset += ai.speed;
-    } else {
-      ai.x += ai.speed*0.5;
-    }
+function moveAI(ai){ 
+  const maxOffset=laneHeight/2-ai.height/2; 
+  let nextX=ai.x+ai.speed; 
+  let blocked=obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:nextX},obs)); 
+  if(!blocked) ai.x=nextX; 
+  else { 
+    if(ai.yOffset-ai.speed>=-maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:ai.x,yOffset:ai.yOffset-ai.speed},obs))) ai.yOffset-=ai.speed; 
+    else if(ai.yOffset+ai.speed<=maxOffset && !obstacles.some(obs=>obs.lane===ai.lane && isColliding({...ai,x:ai.x,yOffset:ai.yOffset+ai.speed},obs))) ai.yOffset+=ai.speed; 
+    else ai.x+=ai.speed*0.5;
   }
 }
 
-// Draw lanes
-function drawLaneLines(){
-  ctx.strokeStyle='white';
-  ctx.lineWidth=2;
-  for(let l=1;l<laneCount;l++){
-    ctx.beginPath();
-    ctx.moveTo(0, l*laneHeight);
-    ctx.lineTo(canvas.width, l*laneHeight);
-    ctx.stroke();
-  }
-}
-
-// High scores
-function saveHighScore(name,time){
-  let scores = JSON.parse(localStorage.getItem('highScores')||'[]');
-  scores.push({name:name,time:parseFloat(time)});
-  scores.sort((a,b)=>a.time-b.time);
-  localStorage.setItem('highScores', JSON.stringify(scores));
-  displayHighScores();
-}
-
-function displayHighScores(){
-  const scoreList = document.getElementById('scoreList');
-  scoreList.innerHTML='';
-  const scores = JSON.parse(localStorage.getItem('highScores')||'[]');
-  scores.forEach(s=>{
-    const li = document.createElement('li');
-    li.innerText = `${s.name}: ${s.time}s`;
-    scoreList.appendChild(li);
-  });
-}
-
-// Main game loop
+// Draw
+function drawLaneLines(){ ctx.strokeStyle='white'; ctx.lineWidth=2; for(let l=1;l<laneCount;l++){ ctx.beginPath(); ctx.moveTo(0,l*laneHeight); ctx.lineTo(canvas.width,l*laneHeight); ctx.stroke();}}
 function loop(){
   if(!gameStarted) return;
   updateTimer();
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
   if(!gamePaused){
-    movePlayerLane();
-    cameraX = player.x - 200;
-
-    // Draw background
-    if(backgroundImg.complete){
-      for(let i=0;i<trackLength;i+=backgroundImg.width){
-        ctx.drawImage(backgroundImg, i - cameraX, 0, backgroundImg.width, canvas.height);
-      }
-    }
-
+    movePlayerLane(); cameraX=player.x-200;
+    for(let i=0;i<trackLength;i+=images['track_background.png'].width) ctx.drawImage(images['track_background.png'],i-cameraX,0,images['track_background.png'].width,canvas.height);
     drawLaneLines();
-
-    // Draw obstacles
-    obstacles.forEach(obs=>{
-      if(obstacleImg.complete){
-        ctx.drawImage(obstacleImg, obs.x-cameraX, obs.lane*laneHeight + laneHeight/2 + obs.yOffset - obs.height/2, obs.width, obs.height);
-      }
-    });
-
-    // Draw lucky blocks
-    blocks.forEach(block=>{
-      if(!block.hit){
-        if(blockImg.complete){
-          ctx.drawImage(blockImg, block.x-cameraX, block.lane*laneHeight + laneHeight/2 - block.height/2, block.width, block.height);
-        }
+    obstacles.forEach(obs=>ctx.drawImage(images['obstacle.png'],obs.x-cameraX,obs.lane*laneHeight+laneHeight/2-obs.height/2,obs.width,obs.height));
+    blocks.forEach(block=>{ 
+      if(!block.hit){ 
+        ctx.drawImage(images['lucky_block.png'],block.x-cameraX,block.lane*laneHeight+laneHeight/2-block.height/2,block.width,block.height); 
         if(isColliding(player,block)) askQuestion(block);
       }
     });
-
-    // Move & draw AI
-    aiDrivers.forEach(ai=>{
-      moveAI(ai);
-      ctx.drawImage(ai.img, ai.x - cameraX, ai.lane*laneHeight + laneHeight/2 + ai.yOffset - ai.height/2, ai.width, ai.height);
-    });
-
-    // Move player forward
-    let nextX = player.x + player.speed;
-    if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX}, obs))){
-      player.x = nextX;
-    }
-
-    // Draw player
-    ctx.drawImage(player.avatarImg, player.x-cameraX, player.lane*laneHeight + laneHeight/2 + player.yOffset - player.height/2, player.width, player.height);
-
-    // Finish line
-    if(player.x + player.width >= trackLength - 100) finalScreen();
+    aiDrivers.forEach(ai=>{ moveAI(ai); ctx.drawImage(images[ai.img],ai.x-cameraX,ai.lane*laneHeight+laneHeight/2+ai.yOffset-ai.height/2,ai.width,ai.height);});
+    let nextX=player.x+player.speed; if(!obstacles.some(obs=>obs.lane===player.lane && isColliding({...player,x:nextX},obs))) player.x=nextX;
+    ctx.drawImage(images[player.avatarImg],player.x-cameraX,player.lane*laneHeight+laneHeight/2+player.yOffset-player.height/2,player.width,player.height);
+    if(player.x+player.width>=trackLength-100) finalScreen();
   }
-
   requestAnimationFrame(loop);
 }
 
-// Final screen
-function finalScreen(){
-  gamePaused = true;
-  let name = prompt(`You finished in ${elapsedTime}s! Enter your name for high scores:`);
-  if(name) saveHighScore(name, elapsedTime);
-  location.reload();
-}
+// High Scores
+function saveHighScore(name,time){ let scores=JSON.parse(localStorage.getItem('highScores')||'[]'); scores.push({name,time:parseFloat(time)}); scores.sort((a,b)=>a.time-b.time); localStorage.setItem('highScores',JSON.stringify(scores)); displayHighScores();}
+function displayHighScores(){ const scoreList=document.getElementById('scoreList'); scoreList.innerHTML=''; const scores=JSON.parse(localStorage.getItem('highScores')||'[]'); scores.forEach(s=>{ const li=document.createElement('li'); li.innerText=`${s.name}: ${s.time}s`; scoreList.appendChild(li);});}
 
-// Start button
-document.getElementById('startButton').onclick = ()=>{
-  if(backgroundImg.complete && playerImg.complete && aiImgs.every(img=>img.complete) && blockImg.complete && obstacleImg.complete){
-    startGame();
-  } else {
-    backgroundImg.onload = startGame;
-    playerImg.onload = startGame;
-    aiImgs.forEach(img=>img.onload=startGame);
-    blockImg.onload = startGame;
-    obstacleImg.onload = startGame;
-  }
-}
+// Final
+function finalScreen(){ gamePaused=true; let name=prompt(`You finished in ${elapsedTime}s! Enter your name:`); if(name) saveHighScore(name,elapsedTime); location.reload();}
 
-function startGame(){
-  gameStarted = true;
-  startTime = Date.now();
-  document.getElementById('bgMusic').play();
-  document.getElementById('startScreen').style.display='none';
+// Start
+document.getElementById('startButton').onclick=()=>{ 
+  gameStarted=true; 
+  startTime=Date.now(); 
+  document.getElementById('bgMusic').play(); 
+  document.getElementById('startScreen').style.display='none'; 
+  loop(); 
   displayHighScores();
-  loop();
-}
-
-displayHighScores();
+};
 </script>
-
 </body>
 </html>
