@@ -46,6 +46,15 @@ let gameStarted = false;
 let startTime, elapsedTime=0;
 const baseSpeed = 3.5;
 
+// Load the background image
+const backgroundImg = new Image();
+backgroundImg.src = "track_background.png";
+
+// Draw background scrolling with camera
+for (let i = 0; i < trackLength; i += backgroundImg.width) {
+    ctx.drawImage(backgroundImg, i - cameraX, 0, backgroundImg.width, canvas.height);
+}
+
 // Track & lanes
 const trackLength = 20000;
 const laneCount = 4;
